@@ -58,6 +58,7 @@ import type {
 
 const tabs = [
   { id: 'runs', label: 'Runs', icon: ClipboardCheck },
+  { id: 'queries', label: 'Queries', icon: ListChecks },
   { id: 'detail', label: 'Automated Detail', icon: GitBranch },
   { id: 'review', label: 'Human Review', icon: UserCheck },
   { id: 'trends', label: 'Trends', icon: TrendingUp },
@@ -154,6 +155,23 @@ function qualityClass(label: QualityLabel | string) {
   }
 
   return 'warning';
+}
+
+function queryStatusLabel(node: ConversationNode) {
+  const hasFailure = node.stage1Findings.some((finding) => finding.outcome === 'Fail');
+
+  if (hasFailure) {
+    return 'Failing';
+  }
+
+  const hasWarning = node.stage1Findings.some((finding) => finding.outcome === 'Warning');
+  return hasWarning ? 'Needs Review' : 'Passing';
+}
+
+function formatMachineLabel(value: string) {
+  return value
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function StatusPill({ label }: { label: string }) {
@@ -339,6 +357,11 @@ function App() {
     setSelectedNodeId(root?.id ?? getSeedNodes(selectedRun, seedId)[0]?.id ?? '');
   }
 
+  function selectQuery(node: ConversationNode) {
+    setSelectedSeedId(node.seedId);
+    setSelectedNodeId(node.id);
+  }
+
   function updateQualityReview(
     nodeId: string,
     area: QualityAssessment['area'],
@@ -414,6 +437,15 @@ function App() {
             selectedRollup={selectedRollup}
             rollups={rollups}
             onSelectRun={selectRun}
+            onOpenDetail={() => setActiveTab('detail')}
+          />
+        ) : null}
+
+        {activeTab === 'queries' ? (
+          <QueryExecutionView
+            selectedRun={selectedRun}
+            selectedNodeId={selectedNode?.id ?? ''}
+            onSelectQuery={selectQuery}
             onOpenDetail={() => setActiveTab('detail')}
           />
         ) : null}
@@ -591,6 +623,99 @@ function RunsView({
             icon={MessageSquareText}
             tone="info"
           />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function QueryExecutionView({
+  selectedRun,
+  selectedNodeId,
+  onSelectQuery,
+  onOpenDetail,
+}: {
+  selectedRun: EvaluationRun;
+  selectedNodeId: string;
+  onSelectQuery: (node: ConversationNode) => void;
+  onOpenDetail: () => void;
+}) {
+  const queryNodes = getRunNodes(selectedRun);
+  const seedQueryCount = queryNodes.filter((node) => node.depth === 0).length;
+  const followUpQueryCount = queryNodes.length - seedQueryCount;
+  const maxDepth = Math.max(...queryNodes.map((node) => node.depth), 0);
+  const failingQueryCount = queryNodes.filter((node) => queryStatusLabel(node) === 'Failing').length;
+
+  return (
+    <div className="view-grid queries-grid">
+      <section className="summary-band query-summary">
+        <Metric
+          label="Seed Queries"
+          value={String(seedQueryCount)}
+          icon={ListChecks}
+          tone="info"
+        />
+        <Metric
+          label="During-Run Queries"
+          value={String(followUpQueryCount)}
+          icon={MessageSquareText}
+          tone="positive"
+        />
+        <Metric label="Max Depth" value={String(maxDepth)} icon={GitBranch} tone="warning" />
+        <Metric
+          label="Failing Queries"
+          value={String(failingQueryCount)}
+          icon={XCircle}
+          tone={failingQueryCount ? 'negative' : 'positive'}
+        />
+      </section>
+
+      <section className="panel query-panel">
+        <div className="section-heading">
+          <div>
+            <h2>Query Execution List</h2>
+            <p>{selectedRun.label}</p>
+          </div>
+          <button className="primary-action" type="button" onClick={onOpenDetail}>
+            <GitBranch aria-hidden="true" />
+            Open Selected
+          </button>
+        </div>
+
+        <div className="query-list">
+          {queryNodes.map((node, index) => {
+            const seed = seedById[node.seedId];
+            const phase = node.depth === 0 ? 'Before Evaluation' : 'During Evaluation';
+            const status = queryStatusLabel(node);
+
+            return (
+              <button
+                key={node.id}
+                type="button"
+                className={`query-row ${node.id === selectedNodeId ? 'selected' : ''}`}
+                onClick={() => onSelectQuery(node)}
+              >
+                <span className="query-index">{String(index + 1).padStart(2, '0')}</span>
+                <span className="query-copy">
+                  <strong>{node.query}</strong>
+                  <span>
+                    {node.path.length > 1 ? node.path.join(' / ') : seed.notes}
+                  </span>
+                </span>
+                <span className="query-meta">
+                  <span>Depth {node.depth}</span>
+                  <span>{formatMachineLabel(seed.category)}</span>
+                  <span>{formatMachineLabel(seed.expectedMediaType)}</span>
+                </span>
+                <span className={`query-phase ${node.depth === 0 ? 'before' : 'during'}`}>
+                  {phase}
+                </span>
+                <StatusPill label={status} />
+                <span className="query-result-count">{node.resultSet.length} results</span>
+                <ChevronRight aria-hidden="true" />
+              </button>
+            );
+          })}
         </div>
       </section>
     </div>

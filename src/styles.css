@@ -143,6 +143,7 @@ span {
 .primary-action svg,
 .metric svg,
 .run-row svg,
+.query-row svg,
 .finding svg,
 .follow-up-list svg,
 .review-controls svg,
@@ -309,6 +310,7 @@ footer {
 }
 
 .run-list,
+.query-list,
 .seed-list,
 .score-list,
 .reason-list,
@@ -336,13 +338,36 @@ footer {
   text-align: left;
 }
 
+.query-row {
+  display: grid;
+  grid-template-columns: 3rem minmax(240px, 1fr) minmax(180px, 0.42fr) auto auto auto auto;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 4.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--text);
+  text-align: left;
+}
+
 .run-row > div {
   display: grid;
   gap: 0.2rem;
   min-width: 0;
 }
 
+.query-copy,
+.query-meta {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
 .run-row strong,
+.query-copy strong,
 .seed-list span,
 .node-switcher strong,
 .score-row span,
@@ -351,10 +376,61 @@ footer {
 }
 
 .run-row.selected,
+.query-row.selected,
 .seed-list button.selected,
 .node-switcher button.selected {
   border-color: var(--teal);
   background: #f0fdfa;
+}
+
+.query-copy > span,
+.query-result-count {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.query-index {
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel-soft);
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.query-meta {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.query-meta span,
+.query-phase {
+  min-height: 1.55rem;
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.query-meta span {
+  color: #475569;
+  background: #eef2f7;
+}
+
+.query-phase.before {
+  color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.query-phase.during {
+  color: var(--teal);
+  background: var(--teal-soft);
 }
 
 .pill {
@@ -911,7 +987,8 @@ textarea {
     grid-template-columns: 1fr;
   }
 
-  .run-row {
+  .run-row,
+  .query-row {
     grid-template-columns: 1fr;
   }
 
