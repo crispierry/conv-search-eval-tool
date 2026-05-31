@@ -19,6 +19,7 @@ The first version is intentionally documentation-first and mock-driven. The goal
 - [Mock app requirements](docs/MOCK_APP_REQUIREMENTS.md)
 - [Requirements Q&A](docs/REQUIREMENTS_QA.md)
 - [Brainstorming notes](docs/BRAINSTORMING.md)
+- [Work log](docs/WORK_LOG.md)
 - [Decision log](docs/DECISIONS.md)
 - [Contributing guide](CONTRIBUTING.md)
 - [Security notes](SECURITY.md)
