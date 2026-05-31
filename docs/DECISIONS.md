@@ -65,6 +65,24 @@ Consequences:
 - Human reviewers can validate AI quality judgments without losing objective failure evidence.
 - Reporting can show both correctness failure trends and quality trends.
 
+### 2026-05-31: Implement V1 As A React TMDB Fixture App
+
+Decision: Build the first working version as a Vite, React, and TypeScript web app with TMDB-shaped fixture data and a small TMDB client layer.
+
+Context: The repo had product documentation but no runnable app. The product team needs a reviewable internal dashboard that demonstrates run selection, automated findings, human review, and trends. Movie and series metadata should come from TMDB.
+
+Alternatives considered:
+
+- Keep the repo documentation-only.
+- Build static HTML without typed fixtures or reusable evaluation rollups.
+- Require a live TMDB token before the first app can run.
+
+Consequences:
+
+- The app works offline from fixtures while preserving TMDB IDs, poster paths, metadata source labels, and attribution.
+- A live TMDB read token can be added later through `VITE_TMDB_READ_ACCESS_TOKEN`.
+- The V1 user experience is now testable through lint, production build, and local browser verification.
+
 ### 2026-05-31: Evaluate Follow-Ups As Conversation Trees
 
 Decision: Automated evaluation should explore suggested follow-ups as a bounded exhaustive tree to depth 5.

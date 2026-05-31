@@ -126,7 +126,7 @@ At the aggregate level:
 - Is there evidence of bias or narrowness in the system's suggestions?
 - Does repetition increase by depth or query category?
 
-## Metadata Sources
+## Metadata Source
 
 For the first prototype, the app should use TMDb as the entertainment metadata source. TMDb gives the project a lower-friction way to exercise movie, TV, people, image, and search workflows while the evaluation experience is still being designed.
 
@@ -142,6 +142,9 @@ Rules:
 
 - V1 should keep metadata access behind a replaceable adapter.
 - V1 can combine TMDb responses with static fixtures where needed to simulate unavailable WBD or IMDb fields.
+- Correctness gates should record TMDb as the metadata source for movie and series checks in the prototype.
+- TMDb title, media type, cast, crew, release year, rating, overview, and poster path fields should be preserved in evaluation snapshots when available.
+- Missing or incomplete TMDb metadata should be recorded as a warning or hard failure according to the Stage 1 rules.
 - Reviewer, scenario, scoring, and reporting models should not depend on TMDb-specific field names.
 - If WBD enterprise metadata is available, correctness gates should use WBD as the source of truth.
 - If WBD enterprise metadata is unavailable, IMDb Enterprise metadata can be used as fallback.
