@@ -14,7 +14,7 @@ export const seedQueries: SeedQuery[] = [
     query: 'Smart, emotional sci-fi movies for a Sunday night',
     category: 'mood',
     expectedMediaType: 'movie',
-    expectedResultCount: { min: 3, max: 5 },
+    expectedResultCount: { min: 7, max: 7 },
     constraints: ['movie results', 'science fiction', 'emotionally resonant'],
     goldenSet: ['tmdb-movie-329865', 'tmdb-movie-157336'],
     notes: 'Mood-led query where ranking and blurb usefulness matter.',
@@ -24,7 +24,7 @@ export const seedQueries: SeedQuery[] = [
     query: 'Keanu Reeves action movies that still feel clever',
     category: 'cast',
     expectedMediaType: 'movie',
-    expectedResultCount: { min: 3, max: 5 },
+    expectedResultCount: { min: 7, max: 7 },
     constraints: ['movie results', 'cast includes Keanu Reeves', 'action tone'],
     goldenSet: ['tmdb-movie-603', 'tmdb-movie-245891'],
     notes: 'Cast constraint should be strict across every returned result.',
@@ -34,7 +34,7 @@ export const seedQueries: SeedQuery[] = [
     query: 'Unsettling workplace mystery series',
     category: 'compound',
     expectedMediaType: 'series',
-    expectedResultCount: { min: 3, max: 5 },
+    expectedResultCount: { min: 7, max: 7 },
     constraints: ['series results', 'mystery or thriller tone', 'workplace or institution setting'],
     goldenSet: ['tmdb-tv-95396', 'tmdb-tv-62560'],
     notes: 'Compound intent where the tool should spot partial-but-weak matches.',
@@ -127,7 +127,488 @@ const followUp = (
   targetNodeId?: string,
 ): FollowUpSuggestion => ({ id, text, type, patternKey, targetNodeId });
 
-export const conversationNodes: ConversationNode[] = [
+const targetResultCount = 7;
+
+type ResultBackfill = {
+  mediaId: string;
+  relevance: SearchResult['relevance'];
+  actual: string;
+  description: string;
+};
+
+const smartScifiBackfill: ResultBackfill[] = [
+  {
+    mediaId: 'tmdb-movie-329865',
+    relevance: 'Excellent',
+    actual: 'movie, science fiction, emotional drama',
+    description: 'Arrival leads with language, grief, and first contact rather than spectacle.',
+  },
+  {
+    mediaId: 'tmdb-movie-157336',
+    relevance: 'Excellent',
+    actual: 'movie, science fiction, family drama',
+    description: 'Interstellar pairs cosmic scale with a clear emotional through-line.',
+  },
+  {
+    mediaId: 'tmdb-movie-152601',
+    relevance: 'Good',
+    actual: 'movie, science fiction romance',
+    description: 'Her keeps the speculative premise intimate and reflective.',
+  },
+  {
+    mediaId: 'tmdb-movie-438631',
+    relevance: 'Good',
+    actual: 'movie, science fiction adventure',
+    description: 'Dune is epic, but its family and destiny stakes keep it grounded.',
+  },
+  {
+    mediaId: 'tmdb-movie-300668',
+    relevance: 'Good',
+    actual: 'movie, cerebral science fiction horror',
+    description: 'Annihilation brings a quieter, unsettling kind of wonder.',
+  },
+  {
+    mediaId: 'tmdb-movie-335984',
+    relevance: 'Good',
+    actual: 'movie, reflective science fiction drama',
+    description: 'Blade Runner 2049 is moody and cerebral, with emotional stakes under the noir shell.',
+  },
+  {
+    mediaId: 'tmdb-movie-603',
+    relevance: 'Needs Work',
+    actual: 'movie, science fiction action',
+    description: 'The Matrix is smart sci-fi, though more action-forward than the mood asks.',
+  },
+  {
+    mediaId: 'tmdb-movie-604',
+    relevance: 'Needs Work',
+    actual: 'movie, science fiction action sequel',
+    description: 'The Matrix Reloaded keeps the ideas big but is a less emotional fit.',
+  },
+];
+
+const newerScifiBackfill: ResultBackfill[] = [
+  {
+    mediaId: 'tmdb-movie-693134',
+    relevance: 'Good',
+    actual: 'movie, 2024 science fiction',
+    description: 'Dune: Part Two is the newest large-scale continuation in the set.',
+  },
+  {
+    mediaId: 'tmdb-movie-670292',
+    relevance: 'Good',
+    actual: 'movie, 2023 science fiction',
+    description: 'The Creator adds recent AI conflict with a human emotional center.',
+  },
+  {
+    mediaId: 'tmdb-movie-438631',
+    relevance: 'Good',
+    actual: 'movie, 2021 science fiction',
+    description: 'Dune gives the newest high-profile option in the set.',
+  },
+  {
+    mediaId: 'tmdb-movie-577922',
+    relevance: 'Good',
+    actual: 'movie, 2020 science fiction thriller',
+    description: 'Tenet is recent, clever, and more puzzle-driven than emotional.',
+  },
+  {
+    mediaId: 'tmdb-movie-300668',
+    relevance: 'Good',
+    actual: 'movie, 2018 science fiction',
+    description: 'Annihilation is recent, cerebral, and eerie.',
+  },
+  {
+    mediaId: 'tmdb-movie-335984',
+    relevance: 'Good',
+    actual: 'movie, 2017 science fiction',
+    description: 'Blade Runner 2049 keeps the reflective tone with a more recent release date.',
+  },
+  {
+    mediaId: 'tmdb-movie-329865',
+    relevance: 'Good',
+    actual: 'movie, 2016 science fiction',
+    description: 'Arrival is slightly older than the rest but still inside the newer window.',
+  },
+];
+
+const baselineScifiBackfill: ResultBackfill[] = [
+  {
+    mediaId: 'tmdb-movie-157336',
+    relevance: 'Good',
+    actual: 'movie, science fiction',
+    description: 'A space movie with emotion.',
+  },
+  {
+    mediaId: 'tmdb-movie-335984',
+    relevance: 'Good',
+    actual: 'movie, science fiction',
+    description: 'A futuristic movie with mystery.',
+  },
+  {
+    mediaId: 'tmdb-movie-438631',
+    relevance: 'Good',
+    actual: 'movie, science fiction',
+    description: 'A large-scale sci-fi adventure.',
+  },
+  {
+    mediaId: 'tmdb-movie-577922',
+    relevance: 'Good',
+    actual: 'movie, science fiction',
+    description: 'A twisty time-bending action movie.',
+  },
+  {
+    mediaId: 'tmdb-movie-603',
+    relevance: 'Good',
+    actual: 'movie, science fiction action',
+    description: 'A famous simulated-reality action movie.',
+  },
+  {
+    mediaId: 'tmdb-movie-670292',
+    relevance: 'Good',
+    actual: 'movie, science fiction action',
+    description: 'A recent AI war movie.',
+  },
+  {
+    mediaId: 'tmdb-movie-300668',
+    relevance: 'Good',
+    actual: 'movie, science fiction horror',
+    description: 'A strange science fiction thriller.',
+  },
+];
+
+const keanuBackfill: ResultBackfill[] = [
+  {
+    mediaId: 'tmdb-movie-603',
+    relevance: 'Excellent',
+    actual: 'movie, Keanu Reeves cast, action sci-fi',
+    description: 'The Matrix is the strongest clever-action match and includes Keanu Reeves.',
+  },
+  {
+    mediaId: 'tmdb-movie-245891',
+    relevance: 'Excellent',
+    actual: 'movie, Keanu Reeves cast, action thriller',
+    description: 'John Wick adds precise action craft with Keanu in the lead.',
+  },
+  {
+    mediaId: 'tmdb-movie-604',
+    relevance: 'Good',
+    actual: 'movie, Keanu Reeves cast, action sci-fi',
+    description: 'The Matrix Reloaded keeps the same cast and action-forward premise.',
+  },
+  {
+    mediaId: 'tmdb-movie-1637',
+    relevance: 'Good',
+    actual: 'movie, Keanu Reeves cast, action thriller',
+    description: 'Speed is a clean Keanu action match with a clever pressure-cooker premise.',
+  },
+  {
+    mediaId: 'tmdb-movie-1089',
+    relevance: 'Good',
+    actual: 'movie, Keanu Reeves cast, action thriller',
+    description: 'Point Break adds undercover tension and kinetic action with Keanu in the lead.',
+  },
+  {
+    mediaId: 'tmdb-movie-561',
+    relevance: 'Good',
+    actual: 'movie, Keanu Reeves cast, supernatural action',
+    description: 'Constantine is more occult than cerebral, but it keeps Keanu in action mode.',
+  },
+  {
+    mediaId: 'tmdb-movie-605',
+    relevance: 'Good',
+    actual: 'movie, Keanu Reeves cast, action sci-fi sequel',
+    description: 'The Matrix Revolutions keeps the sci-fi action thread but is another sequel.',
+  },
+  {
+    mediaId: 'tmdb-movie-9886',
+    relevance: 'Needs Work',
+    actual: 'movie, Keanu Reeves cast, science fiction action',
+    description: 'Johnny Mnemonic fits the sci-fi/action metadata, but is a rougher quality match.',
+  },
+  {
+    mediaId: 'tmdb-movie-64686',
+    relevance: 'Needs Work',
+    actual: 'movie, Keanu Reeves cast, fantasy action',
+    description: '47 Ronin has Keanu and action, though it is less clever and less modern.',
+  },
+];
+
+const keanuScifiBackfill: ResultBackfill[] = [
+  {
+    mediaId: 'tmdb-movie-603',
+    relevance: 'Excellent',
+    actual: 'movie, Keanu Reeves cast, science fiction action',
+    description: 'The Matrix remains the best match for clever sci-fi action.',
+  },
+  {
+    mediaId: 'tmdb-movie-604',
+    relevance: 'Good',
+    actual: 'movie, Keanu Reeves cast, science fiction action',
+    description: 'The Matrix Reloaded fits the sci-fi action request, with a sequel caveat.',
+  },
+  {
+    mediaId: 'tmdb-movie-605',
+    relevance: 'Good',
+    actual: 'movie, Keanu Reeves cast, science fiction action sequel',
+    description: 'The Matrix Revolutions keeps the sci-fi action franchise in scope.',
+  },
+  {
+    mediaId: 'tmdb-movie-9886',
+    relevance: 'Needs Work',
+    actual: 'movie, Keanu Reeves cast, science fiction action',
+    description: 'Johnny Mnemonic fits the metadata but is a shakier recommendation.',
+  },
+  {
+    mediaId: 'tmdb-movie-561',
+    relevance: 'Needs Work',
+    actual: 'movie, Keanu Reeves cast, supernatural action',
+    description: 'Constantine has Keanu and action, but the sci-fi fit is adjacent.',
+  },
+  {
+    mediaId: 'tmdb-movie-335984',
+    relevance: 'Fail',
+    actual: 'movie, science fiction action without Keanu Reeves',
+    description: 'Blade Runner 2049 is cerebral sci-fi action but misses the actor constraint.',
+  },
+  {
+    mediaId: 'tmdb-movie-438631',
+    relevance: 'Fail',
+    actual: 'movie, science fiction action without Keanu Reeves',
+    description: 'Dune broadens into sci-fi action but does not include Keanu Reeves.',
+  },
+];
+
+const keanuOriginalBackfill: ResultBackfill[] = [
+  {
+    mediaId: 'tmdb-movie-603',
+    relevance: 'Excellent',
+    actual: 'movie, Keanu Reeves cast, original film',
+    description: 'The Matrix is an original title and the best clever-action fit.',
+  },
+  {
+    mediaId: 'tmdb-movie-245891',
+    relevance: 'Excellent',
+    actual: 'movie, Keanu Reeves cast, original film',
+    description: 'John Wick is an original title with a clear action focus.',
+  },
+  {
+    mediaId: 'tmdb-movie-1637',
+    relevance: 'Good',
+    actual: 'movie, Keanu Reeves cast, original film',
+    description: 'Speed is an original, high-concept action match.',
+  },
+  {
+    mediaId: 'tmdb-movie-1089',
+    relevance: 'Good',
+    actual: 'movie, Keanu Reeves cast, original film',
+    description: 'Point Break keeps the original-film filter and adds undercover action.',
+  },
+  {
+    mediaId: 'tmdb-movie-561',
+    relevance: 'Good',
+    actual: 'movie, Keanu Reeves cast, original film',
+    description: 'Constantine is original and action-led, though more supernatural than clever.',
+  },
+  {
+    mediaId: 'tmdb-movie-9886',
+    relevance: 'Needs Work',
+    actual: 'movie, Keanu Reeves cast, original film',
+    description: 'Johnny Mnemonic is original and sci-fi/action, but weaker as a quality match.',
+  },
+  {
+    mediaId: 'tmdb-movie-64686',
+    relevance: 'Needs Work',
+    actual: 'movie, Keanu Reeves cast, original film',
+    description: '47 Ronin is original and action-oriented, but less aligned with the clever ask.',
+  },
+];
+
+const baselineKeanuBackfill: ResultBackfill[] = [
+  ...keanuBackfill.filter((item) => item.mediaId !== 'tmdb-movie-245891'),
+  {
+    mediaId: 'tmdb-movie-438631',
+    relevance: 'Fail',
+    actual: 'movie, no Keanu Reeves cast match',
+    description: 'Dune is stylish sci-fi action.',
+  },
+  {
+    mediaId: 'tmdb-movie-335984',
+    relevance: 'Fail',
+    actual: 'movie, no Keanu Reeves cast match',
+    description: 'Blade Runner 2049 is moody sci-fi action.',
+  },
+];
+
+const workplaceBackfill: ResultBackfill[] = [
+  {
+    mediaId: 'tmdb-tv-95396',
+    relevance: 'Excellent',
+    actual: 'series, workplace mystery',
+    description: 'Severance is the clearest workplace mystery match.',
+  },
+  {
+    mediaId: 'tmdb-tv-62560',
+    relevance: 'Good',
+    actual: 'series, institutional thriller',
+    description: 'Mr. Robot uses workplaces and systems as pressure points.',
+  },
+  {
+    mediaId: 'tmdb-tv-80335',
+    relevance: 'Good',
+    actual: 'series, institutional mystery thriller',
+    description: 'Homecoming has a clinical workplace mystery with buried institutional motives.',
+  },
+  {
+    mediaId: 'tmdb-tv-63646',
+    relevance: 'Good',
+    actual: 'series, workplace-adjacent spy thriller',
+    description: 'Counterpart starts from an office-like agency and opens into paranoid sci-fi.',
+  },
+  {
+    mediaId: 'tmdb-tv-66276',
+    relevance: 'Good',
+    actual: 'series, institutional crime mystery',
+    description: 'The Night Of shifts the institution to the justice system while keeping the dread.',
+  },
+  {
+    mediaId: 'tmdb-tv-54344',
+    relevance: 'Good',
+    actual: 'series, mystery drama',
+    description: 'The Leftovers brings unsettling mystery, though less workplace structure.',
+  },
+  {
+    mediaId: 'tmdb-tv-70523',
+    relevance: 'Good',
+    actual: 'series, mystery thriller',
+    description: 'Dark is strong on mystery and dread, but less workplace-specific.',
+  },
+  {
+    mediaId: 'tmdb-tv-66732',
+    relevance: 'Needs Work',
+    actual: 'series, mystery but weaker workplace fit',
+    description: 'Stranger Things is eerie and serialized, though its workplace fit is weak.',
+  },
+  {
+    mediaId: 'tmdb-tv-1396',
+    relevance: 'Needs Work',
+    actual: 'series, crime drama not workplace mystery',
+    description: 'Breaking Bad is grounded crime drama but misses the workplace mystery intent.',
+  },
+];
+
+const baselineWorkplaceBackfill: ResultBackfill[] = [
+  {
+    mediaId: 'tmdb-tv-66732',
+    relevance: 'Needs Work',
+    actual: 'series, mystery but weak workplace fit',
+    description: 'A supernatural mystery with teen characters.',
+  },
+  {
+    mediaId: 'tmdb-tv-70523',
+    relevance: 'Good',
+    actual: 'series, mystery thriller',
+    description: 'A dense mystery with a dark tone.',
+  },
+  {
+    mediaId: 'tmdb-tv-1396',
+    relevance: 'Needs Work',
+    actual: 'series, crime drama',
+    description: 'A serious crime drama with high tension.',
+  },
+  {
+    mediaId: 'tmdb-tv-80335',
+    relevance: 'Good',
+    actual: 'series, mystery thriller',
+    description: 'A paranoid thriller with secrets.',
+  },
+  {
+    mediaId: 'tmdb-tv-63646',
+    relevance: 'Good',
+    actual: 'series, science fiction thriller',
+    description: 'A twisty parallel-world spy story.',
+  },
+  {
+    mediaId: 'tmdb-tv-66276',
+    relevance: 'Good',
+    actual: 'series, crime mystery',
+    description: 'A dark legal mystery.',
+  },
+  {
+    mediaId: 'tmdb-tv-54344',
+    relevance: 'Good',
+    actual: 'series, mystery drama',
+    description: 'A somber mystery drama.',
+  },
+];
+
+function resultBackfillFor(node: ConversationNode) {
+  if (node.id === 'node-current-scifi-newer') {
+    return newerScifiBackfill;
+  }
+
+  if (node.id === 'node-current-keanu-scifi') {
+    return keanuScifiBackfill;
+  }
+
+  if (node.id === 'node-current-keanu-no-sequels') {
+    return keanuOriginalBackfill;
+  }
+
+  if (node.runId === 'run-baseline' && node.seedId === 'seed-smart-scifi') {
+    return baselineScifiBackfill;
+  }
+
+  if (node.runId === 'run-baseline' && node.seedId === 'seed-keanu-action') {
+    return baselineKeanuBackfill;
+  }
+
+  if (node.runId === 'run-baseline' && node.seedId === 'seed-workplace-mystery') {
+    return baselineWorkplaceBackfill;
+  }
+
+  if (node.seedId === 'seed-keanu-action') {
+    return keanuBackfill;
+  }
+
+  if (node.seedId === 'seed-workplace-mystery') {
+    return workplaceBackfill;
+  }
+
+  return smartScifiBackfill;
+}
+
+function expectedMediaTypeFor(node: ConversationNode) {
+  const expected = seedQueries.find((seed) => seed.id === node.seedId)?.expectedMediaType;
+  return expected === 'series' ? 'series' : 'movie';
+}
+
+function withSevenResults(node: ConversationNode): ConversationNode {
+  const baseResults = node.resultSet.slice(0, targetResultCount);
+  const existingIds = new Set(baseResults.map((item) => item.mediaId));
+  const backfill = resultBackfillFor(node);
+  const expected = expectedMediaTypeFor(node);
+  const additions = backfill
+    .filter((item) => !existingIds.has(item.mediaId))
+    .slice(0, Math.max(0, targetResultCount - baseResults.length))
+    .map((item, index) =>
+      result(item.mediaId, baseResults.length + index + 1, item.relevance, expected, item.actual),
+    );
+  const customDescriptions = Object.fromEntries(
+    backfill.map((item) => [item.mediaId, item.description]),
+  );
+
+  return {
+    ...node,
+    resultSet: [...baseResults, ...additions],
+    customDescriptions: {
+      ...customDescriptions,
+      ...node.customDescriptions,
+    },
+  };
+}
+
+const conversationNodeFixtures: ConversationNode[] = [
   {
     id: 'node-current-scifi-root',
     seedId: 'seed-smart-scifi',
@@ -163,7 +644,7 @@ export const conversationNodes: ConversationNode[] = [
         'gate-scifi-posters',
         'Poster coverage',
         'Every returned title has a TMDB poster path.',
-        '4 of 4 results include poster_path.',
+        '7 of 7 results include poster_path.',
       ),
       passFinding(
         'gate-scifi-golden',
@@ -236,7 +717,7 @@ export const conversationNodes: ConversationNode[] = [
       result('tmdb-movie-157336', 2, 'Good', 'movie', 'movie, cosmic science fiction'),
     ],
     blurb:
-      'The response understands first contact, but the short result set leaves the branch feeling underfilled.',
+      'The response understands first contact, but the full set includes adjacent sci-fi mood picks below the direct matches.',
     customDescriptions: {
       'tmdb-movie-329865': 'Arrival is the clearest match for the follow-up.',
       'tmdb-movie-157336': 'Interstellar is adjacent through cosmic discovery rather than first contact.',
@@ -244,15 +725,15 @@ export const conversationNodes: ConversationNode[] = [
     followUps: [followUp('fu-scifi-contact-1', 'Keep it grounded', 'refine', 'grounded')],
     stage1Findings: [
       warningFinding(
-        'gate-scifi-contact-count',
-        'Result count',
-        'Expected at least 3 results for this branch.',
-        '2 results returned; both remain useful.',
+        'gate-scifi-contact-precision',
+        'First-contact precision',
+        'Several lower-ranked titles are adjacent rather than direct first-contact stories.',
+        'Arrival is the clearest direct match; later results broaden into cosmic or speculative mood fits.',
       ),
     ],
     qualityAssessments: [
-      quality('Search Results', 'Needs Work', 'The top title is right, but the set is thin.'),
-      quality('Blurb', 'Good', 'Accurately names the limitation.'),
+      quality('Search Results', 'Needs Work', 'The top title is right, but the full set broadens past first-contact intent.'),
+      quality('Blurb', 'Good', 'Accurately names the precision tradeoff.'),
       quality('Custom Descriptions', 'Good', 'Descriptions distinguish direct and adjacent matches.'),
       quality('Follow-Up Suggestions', 'Needs Work', 'Only one suggestion limits exploration.'),
     ],
@@ -288,7 +769,7 @@ export const conversationNodes: ConversationNode[] = [
         'gate-scifi-newer-window',
         'Release window',
         'Returned titles are all from 2016 or later.',
-        'TMDB release years: 2021, 2017, 2016.',
+        'TMDB release years range from 2016 through 2024.',
       ),
     ],
     qualityAssessments: [
@@ -363,7 +844,7 @@ export const conversationNodes: ConversationNode[] = [
       result('tmdb-movie-604', 2, 'Good', 'movie', 'movie, Keanu Reeves cast, science fiction action'),
     ],
     blurb:
-      'The branch correctly narrows to Matrix films but becomes repetitive after two results.',
+      'The branch correctly starts with Matrix films, then broadens into adjacent sci-fi action picks.',
     customDescriptions: {
       'tmdb-movie-603': 'The Matrix remains the best match for clever sci-fi action.',
       'tmdb-movie-604': 'The Matrix Reloaded fits the sci-fi action request, with a sequel caveat.',
@@ -374,15 +855,15 @@ export const conversationNodes: ConversationNode[] = [
     ],
     stage1Findings: [
       warningFinding(
-        'gate-keanu-scifi-count',
-        'Result count',
-        'Expected at least 3 results.',
-        '2 results returned after the refinement.',
+        'gate-keanu-scifi-precision',
+        'Sci-fi action precision',
+        'Several lower-ranked titles broaden beyond Keanu-led sci-fi action.',
+        'The Matrix films are direct; later results are adjacent or cast misses.',
       ),
     ],
     qualityAssessments: [
-      quality('Search Results', 'Good', 'Accurate but narrow.'),
-      quality('Blurb', 'Good', 'Names the narrowness plainly.'),
+      quality('Search Results', 'Good', 'The top Matrix titles are accurate, while lower ranks broaden the strict ask.'),
+      quality('Blurb', 'Good', 'Names the mixed precision plainly.'),
       quality('Custom Descriptions', 'Good', 'Brief but specific.'),
       quality('Follow-Up Suggestions', 'Needs Work', 'Suggestions repeat patterns already shown at the parent node.'),
     ],
@@ -402,7 +883,7 @@ export const conversationNodes: ConversationNode[] = [
       result('tmdb-movie-245891', 2, 'Excellent', 'movie', 'movie, Keanu Reeves cast, original film'),
     ],
     blurb:
-      'The branch removes sequels cleanly and keeps the two strongest original-film matches.',
+      'The branch removes sequels cleanly and keeps seven original-film matches.',
     customDescriptions: {
       'tmdb-movie-603': 'The Matrix is an original title and the best clever-action fit.',
       'tmdb-movie-245891': 'John Wick is an original title with a clear action focus.',
@@ -413,11 +894,11 @@ export const conversationNodes: ConversationNode[] = [
         'gate-keanu-no-sequels',
         'Sequel filter',
         'Returned titles are original entries.',
-        'The Matrix and John Wick are not sequel entries.',
+        'All seven returned titles are original entries rather than sequels.',
       ),
     ],
     qualityAssessments: [
-      quality('Search Results', 'Good', 'Strong matches, though only two results.'),
+      quality('Search Results', 'Good', 'Strong original-film matches with a broader action range lower in the set.'),
       quality('Blurb', 'Good', 'Clear and concise.'),
       quality('Custom Descriptions', 'Good', 'Descriptions explain the filter.'),
       quality('Follow-Up Suggestions', 'Needs Work', 'Only one continuation is offered.'),
@@ -716,6 +1197,8 @@ export const conversationNodes: ConversationNode[] = [
     rawPayloadId: 'tmdb-fixture-baseline-workplace-root',
   },
 ];
+
+export const conversationNodes: ConversationNode[] = conversationNodeFixtures.map(withSevenResults);
 
 export const evaluationRuns: EvaluationRun[] = [
   {

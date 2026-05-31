@@ -550,6 +550,12 @@ footer {
   gap: 0.25rem;
 }
 
+.title-custom-description {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
 .poster {
   position: relative;
   width: 100%;

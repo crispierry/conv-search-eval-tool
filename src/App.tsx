@@ -687,6 +687,9 @@ function AutomatedDetailView({
                     <p>{media.year} · {media.runtimeLabel}</p>
                     <QualityPill label={resultItem.relevance} />
                   </div>
+                  <p className="title-custom-description">
+                    {selectedNode.customDescriptions[resultItem.mediaId]}
+                  </p>
                 </article>
               );
             })}
