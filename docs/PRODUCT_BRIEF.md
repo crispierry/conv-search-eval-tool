@@ -125,20 +125,16 @@ At the aggregate level:
 - Is there evidence of bias or narrowness in the system's suggestions?
 - Does repetition increase by depth or query category?
 
-## Metadata Sources
+## Metadata Source
 
-The app should support two metadata source concepts:
-
-- WBD internal metadata as the primary source of truth.
-- IMDb-style metadata as a fallback or reference source.
+The app uses TMDB as the source for movie and series information in the V1 implementation.
 
 Rules:
 
-- If WBD metadata is available, correctness gates should use WBD as the source of truth.
-- If WBD metadata is unavailable, IMDb-style metadata can be used as fallback.
-- If sources disagree, record a metadata conflict warning.
-- Every validation check should record which metadata source was used.
-- V1 should simulate these sources with lightweight fixture metadata.
+- Correctness gates should record TMDB as the metadata source for movie and series checks.
+- TMDB title, media type, cast, crew, release year, rating, overview, and poster path fields should be preserved in evaluation snapshots when available.
+- Missing or incomplete TMDB metadata should be recorded as a warning or hard failure according to the Stage 1 rules.
+- V1 can simulate TMDB responses with lightweight fixture metadata while leaving a live TMDB client path for future enrichment.
 
 ## Stage 1: Metadata And Correctness Gates
 

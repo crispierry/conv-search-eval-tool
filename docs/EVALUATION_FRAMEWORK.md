@@ -167,7 +167,7 @@ Rollups should preserve evidence, not just final labels.
 
 ## Metadata Validation
 
-WBD internal metadata is the primary source of truth when available. IMDb-style metadata is fallback or reference metadata.
+TMDB is the source for movie and series metadata in the V1 implementation.
 
 Each validation check should record:
 
@@ -178,7 +178,7 @@ Each validation check should record:
 - Outcome.
 - Evidence or note.
 
-If WBD and IMDb-style metadata disagree, record a warning and use WBD for hard failures when available.
+If TMDB metadata is missing or incomplete, record a warning or hard failure according to the specific gate. Fixture data should remain shaped like TMDB responses so future live enrichment is straightforward.
 
 ## Human Review
 

@@ -1,16 +1,31 @@
 # Conversational Search Evaluation Tool
 
-A product and research workspace for designing an evaluation tool for conversational search experiences.
+A web application for evaluating conversational search experiences against TMDB-sourced movie and series metadata.
 
-The first version is intentionally documentation-first and mock-driven. The goal is to clarify the evaluation workflow, scoring model, automation path, and product experience before choosing a production application stack or connecting to a live conversational search API.
+The first implementation is mock-driven but fully interactive. It uses lightweight TMDB-shaped fixtures for seed queries, conversation trees, poster art, metadata checks, quality scoring, human review, and trends. A TMDB client is included for future live enrichment when a read access token is provided.
 
 ## Current Focus
 
-- Define a product-ready PRD for conversational search evaluation.
-- Separate correctness and metadata gates from subjective quality scoring.
-- Support automated conversation-tree evaluation and human review.
-- Preserve a record of requirements Q&A for product team handoff.
-- Prepare for a friendly internal dashboard mock.
+- Select saved evaluation runs and inspect run-level rollups.
+- Review automated conversation-tree findings for seed queries and follow-ups.
+- Validate or reject AI quality assessments with reviewer comments.
+- Mark correctness gate findings as acknowledged or false positive.
+- Report trends for Stage 1 failures, Stage 2 quality, golden-set coverage, follow-up depth, and repeated suggestion patterns.
+- Keep TMDB as the source for movie and series metadata.
+
+## Running The App
+
+```bash
+npm install
+npm run dev
+```
+
+The development server will print a local URL. For live TMDB calls, copy `.env.example` to `.env.local` and set `VITE_TMDB_READ_ACCESS_TOKEN`. Without a token, the app runs from the included TMDB fixture data.
+
+```bash
+npm run lint
+npm run build
+```
 
 ## Documentation
 
@@ -26,7 +41,9 @@ The first version is intentionally documentation-first and mock-driven. The goal
 
 ## Project Status
 
-Private early-stage project. V1 is mock-only with lightweight fixture data. Live API execution, production metadata integrations, and scheduled recurring runs are future phases.
+Private early-stage project. V1 is a working web app with lightweight fixture data. Live conversational search execution, scheduled recurring runs, reviewer assignment, and exportable reports are future phases.
+
+This product uses the TMDB API but is not endorsed or certified by TMDB. See the [TMDB API docs](https://developer.themoviedb.org/docs) and [image docs](https://developer.themoviedb.org/docs/image-basics) for the live metadata and poster conventions used by the implementation.
 
 ## Working Agreement
 

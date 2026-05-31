@@ -25,6 +25,11 @@ build/
 .next/
 .nuxt/
 coverage/
+*.tsbuildinfo
+
+# Generated config artifacts
+vite.config.js
+vite.config.d.ts
 
 # Python
 .venv/
