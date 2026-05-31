@@ -144,6 +144,7 @@ span {
 .metric svg,
 .run-row svg,
 .query-row svg,
+.approval-badge svg,
 .finding svg,
 .follow-up-list svg,
 .review-controls svg,
@@ -570,6 +571,29 @@ footer {
   gap: 0.75rem;
 }
 
+.approval-badge {
+  min-height: 1.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0 0.6rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.approval-badge.approved {
+  color: var(--green);
+  background: var(--green-soft);
+}
+
+.approval-badge.rejected {
+  color: var(--rose);
+  background: var(--rose-soft);
+}
+
 .empty-state {
   min-height: 4rem;
   display: flex;
@@ -619,6 +643,43 @@ footer {
   gap: 1rem;
 }
 
+.content-section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.content-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.content-heading > div:first-child {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.content-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.quality-signal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.quality-rationale {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
 .result-strip {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
@@ -643,9 +704,28 @@ footer {
 }
 
 .title-custom-description {
-  grid-column: 1 / -1;
   color: var(--muted);
   font-size: 0.84rem;
+}
+
+.title-copy-block {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.inline-quality-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.65rem;
+}
+
+.inline-quality-heading > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
 }
 
 .poster {
@@ -686,6 +766,17 @@ footer {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--panel-soft);
+}
+
+.priority-blurb {
+  border-color: var(--teal);
+  background: #f0fdfa;
+  margin-bottom: 1rem;
+}
+
+.priority-blurb > p {
+  color: var(--text);
+  font-size: 1rem;
 }
 
 .two-column {

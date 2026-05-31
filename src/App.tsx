@@ -182,6 +182,38 @@ function QualityPill({ label }: { label: QualityLabel }) {
   return <span className={`pill ${qualityClass(label)}`}>{label}</span>;
 }
 
+function isApprovedQuality(label: QualityLabel) {
+  return label === 'Excellent' || label === 'Good';
+}
+
+function getQualityAssessment(node: ConversationNode, area: QualityAssessment['area']) {
+  return node.qualityAssessments.find((assessment) => assessment.area === area);
+}
+
+function ApprovalBadge({ label }: { label: QualityLabel }) {
+  const approved = isApprovedQuality(label);
+  const Icon = approved ? CheckCircle2 : XCircle;
+
+  return (
+    <span className={`approval-badge ${approved ? 'approved' : 'rejected'}`}>
+      <Icon aria-hidden="true" />
+      {approved ? 'Approved' : 'Rejected'}
+    </span>
+  );
+}
+
+function QualitySignal({ assessment }: { assessment?: QualityAssessment }) {
+  if (!assessment) {
+    return null;
+  }
+
+  return (
+    <div className="quality-signal">
+      <span className="quality-rationale">{assessment.rationale}</span>
+    </div>
+  );
+}
+
 function OutcomeIcon({ outcome }: { outcome: Stage1Outcome }) {
   if (outcome === 'Pass') {
     return <CheckCircle2 aria-hidden="true" />;
@@ -756,6 +788,10 @@ function AutomatedDetailView({
 }) {
   const seedNodes = getSeedNodes(run, selectedSeedId);
   const rootSeeds = getRunSeeds(run);
+  const searchResultsAssessment = getQualityAssessment(selectedNode, 'Search Results');
+  const blurbAssessment = getQualityAssessment(selectedNode, 'Blurb');
+  const customDescriptionsAssessment = getQualityAssessment(selectedNode, 'Custom Descriptions');
+  const followUpAssessment = getQualityAssessment(selectedNode, 'Follow-Up Suggestions');
 
   return (
     <div className="view-grid detail-grid">
@@ -796,6 +832,22 @@ function AutomatedDetailView({
           </button>
         </div>
 
+        <section className="blurb-block priority-blurb">
+          <div className="content-heading">
+            <div>
+              <h3>AI Blurb</h3>
+              <QualitySignal assessment={blurbAssessment} />
+            </div>
+            {blurbAssessment ? (
+              <div className="content-heading-actions">
+                <ApprovalBadge label={blurbAssessment.label} />
+                <QualityPill label={blurbAssessment.label} />
+              </div>
+            ) : null}
+          </div>
+          <p>{selectedNode.blurb}</p>
+        </section>
+
         <div className="node-switcher">
           {seedNodes.map((node) => (
             <button
@@ -811,69 +863,74 @@ function AutomatedDetailView({
         </div>
 
         <div className="response-layout">
-          <div className="result-strip">
-            {selectedNode.resultSet.map((resultItem) => {
-              const media = mediaById[resultItem.mediaId];
-              if (!media) {
-                return null;
-              }
+          <section className="content-section">
+            <div className="content-heading">
+              <div>
+                <h3>Search Results</h3>
+                <QualitySignal assessment={searchResultsAssessment} />
+              </div>
+              {searchResultsAssessment ? <QualityPill label={searchResultsAssessment.label} /> : null}
+            </div>
+            <div className="result-strip">
+              {selectedNode.resultSet.map((resultItem) => {
+                const media = mediaById[resultItem.mediaId];
+                if (!media) {
+                  return null;
+                }
 
-              return (
-                <article className="title-tile" key={resultItem.mediaId}>
-                  <MediaPoster mediaId={resultItem.mediaId} />
+                return (
+                  <article className="title-tile" key={resultItem.mediaId}>
+                    <MediaPoster mediaId={resultItem.mediaId} />
+                    <div>
+                      <span className="rank">#{resultItem.rank}</span>
+                      <h3>{media.title}</h3>
+                      <p>{media.year} · {media.runtimeLabel}</p>
+                      <QualityPill label={resultItem.relevance} />
+                    </div>
+                    <div className="title-copy-block">
+                      <div className="inline-quality-heading">
+                        <strong>Title Blurb</strong>
+                        {customDescriptionsAssessment ? (
+                          <div>
+                            <ApprovalBadge label={customDescriptionsAssessment.label} />
+                            <QualityPill label={customDescriptionsAssessment.label} />
+                          </div>
+                        ) : null}
+                      </div>
+                      <p className="title-custom-description">
+                        {selectedNode.customDescriptions[resultItem.mediaId]}
+                      </p>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="content-section">
+            <h3>Correctness Gates</h3>
+            <div className="finding-list">
+              {selectedNode.stage1Findings.map((finding) => (
+                <div className={`finding ${statusClass(finding.outcome)}`} key={finding.id}>
+                  <OutcomeIcon outcome={finding.outcome} />
                   <div>
-                    <span className="rank">#{resultItem.rank}</span>
-                    <h3>{media.title}</h3>
-                    <p>{media.year} · {media.runtimeLabel}</p>
-                    <QualityPill label={resultItem.relevance} />
+                    <strong>{finding.title}</strong>
+                    <p>{finding.message}</p>
+                    <small>{finding.evidence}</small>
                   </div>
-                  <p className="title-custom-description">
-                    {selectedNode.customDescriptions[resultItem.mediaId]}
-                  </p>
-                </article>
-              );
-            })}
-          </div>
-
-          <div className="blurb-block">
-            <h3>Conversation Blurb</h3>
-            <p>{selectedNode.blurb}</p>
-          </div>
-
-          <div className="two-column">
-            <div>
-              <h3>Correctness Gates</h3>
-              <div className="finding-list">
-                {selectedNode.stage1Findings.map((finding) => (
-                  <div className={`finding ${statusClass(finding.outcome)}`} key={finding.id}>
-                    <OutcomeIcon outcome={finding.outcome} />
-                    <div>
-                      <strong>{finding.title}</strong>
-                      <p>{finding.message}</p>
-                      <small>{finding.evidence}</small>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
-            <div>
-              <h3>Quality Scores</h3>
-              <div className="quality-list">
-                {selectedNode.qualityAssessments.map((assessment) => (
-                  <div className="quality-row" key={assessment.area}>
-                    <div>
-                      <strong>{assessment.area}</strong>
-                      <p>{assessment.rationale}</p>
-                    </div>
-                    <QualityPill label={assessment.label} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          </section>
 
-          <div>
-            <h3>Follow-Up Suggestions</h3>
+          <section className="content-section">
+            <div className="content-heading">
+              <div>
+                <h3>Follow-Up Suggestions</h3>
+                <QualitySignal assessment={followUpAssessment} />
+              </div>
+              {followUpAssessment ? <QualityPill label={followUpAssessment.label} /> : null}
+            </div>
             <div className="follow-up-list">
               {selectedNode.followUps.map((followUp) => (
                 <button
@@ -887,7 +944,7 @@ function AutomatedDetailView({
                 </button>
               ))}
             </div>
-          </div>
+          </section>
         </div>
       </section>
 
