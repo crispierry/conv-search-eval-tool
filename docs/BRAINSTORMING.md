@@ -1,72 +1,122 @@
 # Brainstorming
 
-Use this space to shape the evaluation tool before committing to implementation details.
+Use this space to keep product thinking, open questions, and future ideas visible while the PRD evolves.
 
-## Target Users
+## Current Product Direction
 
-- Who will run evaluations?
-- Who will consume the results?
-- What decisions should the tool help them make?
-- What level of search, ML, or product expertise should the workflow assume?
+The tool should help the product team evaluate conversational search quality across imported seed queries, automated follow-up paths, and human review.
 
-## What Good Conversational Search Means
+The first mock should make the evaluation flow obvious:
 
-- What does a great answer feel like to the user?
-- When should the system answer directly?
-- When should it ask a clarifying question?
-- When should it show sources or search results?
-- How should it handle uncertainty?
+- Import seed queries.
+- Simulate conversational search responses.
+- Evaluate metadata and correctness gates.
+- Score quality areas.
+- Review AI assessments as a human.
+- Track results over time.
 
-## Evaluation Dimensions
+## Agreed Requirements
 
-- Which dimensions are essential for launch readiness?
-- Which dimensions are diagnostic but not part of the final score?
-- Are there hard failure gates, such as hallucinated claims or missing source support?
-- Should different query classes have different criteria?
+- V1 is mostly mock-only with lightweight fixture data.
+- The main audience is the product team.
+- The tool should feel like a friendly internal dashboard.
+- Automated evaluation should explore suggested follow-ups as a bounded exhaustive tree to depth 5.
+- Follow-up branches should be parallelizable in future live execution.
+- Human review should focus on one query run or response node at a time.
+- Every follow-up suggestion should be recorded for later aggregate analysis.
+- The app should separate Stage 1 correctness gates from Stage 2 quality scoring.
+- WBD metadata is primary when available, with IMDb-style metadata as fallback or reference.
+- Trend reporting should show whether quality improves across dates and runs.
 
-## Test Conversation Design
+## Query Categories To Support
 
-- What kinds of conversations should be in the evaluation set?
-- Should scenarios be scripted, generated, or sampled from real usage?
-- How many turns should a typical evaluation conversation include?
-- How should follow-up questions, refinements, and corrections be represented?
+Potential `category` values:
 
-## Scoring And Rubrics
+- `known_title`
+- `media_type`
+- `cast`
+- `actor`
+- `director`
+- `award`
+- `time_period`
+- `rating`
+- `genre`
+- `mood`
+- `similar_to`
+- `compound`
+- `ambiguous`
+- `exploratory`
 
-- Should reviewers use numeric scores, labels, checklists, or free-form notes?
-- What does each score mean in practice?
-- How much disagreement between reviewers is acceptable?
-- Should the tool support calibration examples?
+These categories are for reporting and evaluation behavior. They are distinct from `expected_media_type`, which describes whether results should be movies, series, mixed, or unknown.
 
-## Reviewer Workflow
+## Constraints To Support
 
-- What does a reviewer see first?
-- Should reviewers evaluate one turn at a time or the whole conversation?
-- What information should be hidden to reduce bias?
-- What context should always be visible?
-- How should reviewers flag uncertain judgments?
+Seed queries may include constraints such as:
 
-## Reporting Needs
+- Expected media type.
+- Expected result count range.
+- Required cast member.
+- Required actor.
+- Required director.
+- Required award win.
+- Year or time-period range.
+- Rating.
+- Genre.
+- Golden-set titles.
 
-- What summary views would be useful after an evaluation run?
-- What should be exportable?
-- Which comparisons matter: model versions, retrieval configs, query classes, or time periods?
-- What charts or tables would make product decisions easier?
+Open question: which constraints should be required in the import file versus inferred by AI?
+
+## Follow-Up Suggestion Analysis Ideas
+
+Aggregate follow-up analysis should help answer:
+
+- Are the same follow-up suggestions appearing too often?
+- Are suggestions biased toward certain genres, titles, entities, or moods?
+- Are suggestions overusing safe generic prompts?
+- Are suggestions failing to diversify the conversation?
+- Does suggestion quality degrade by depth?
+- Do some query categories produce better follow-ups than others?
+
+## Trend Dashboard Ideas
+
+The trend view should help answer:
+
+- Is the system improving over time?
+- Did a new run reduce hard failures?
+- Which quality area is improving fastest?
+- Which query categories remain weak?
+- Are follow-up suggestions becoming more diverse?
+- Are golden-set titles appearing more reliably?
+
+## Product Experience Notes
+
+- Use product-readable labels instead of technical jargon where possible.
+- Keep AI assessment visible but clearly labeled.
+- Make failures easy to scan.
+- Preserve evidence for every failure.
+- Make human review fast: approve, reject, change label, comment.
+- Avoid overbuilding synthetic data for the first mock.
+
+## Open Questions
+
+- What exact competitor names should be included in the V1 blocklist?
+- What initial offensive or prohibited language list should be used?
+- What should the max-path safety cap be for a seed query?
+- Should result count targets be defined per query, per category, or both?
+- Should reviewer calibration be part of V1 or a future phase?
+- What export format will product and engineering want first?
+- What metadata fields will be available from WBD in the future?
 
 ## Future Product Surface
 
 - Scenario library.
 - Rubric builder.
-- Side-by-side conversation comparison.
+- Side-by-side system comparison.
 - Reviewer assignment and progress tracking.
 - Calibration mode.
-- Failure taxonomy.
+- Failure taxonomy management.
 - Exportable reports.
-- Integration with search logs or experiment runs.
-
-## Parking Lot
-
-- Could the tool support automated judges later?
-- Should it ingest raw conversations or structured test cases?
-- Should it compare multiple candidate systems in the same review flow?
-- What should be anonymized or redacted before review?
+- Scheduled recurring evaluations.
+- Live conversational search API integration.
+- WBD metadata integration.
+- IMDb or third-party metadata enrichment.
