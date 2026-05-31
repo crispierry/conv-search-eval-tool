@@ -20,13 +20,14 @@ The tool succeeds if the team can answer:
 
 ## V1 Scope
 
-V1 is mostly mock-only. The correct conversational search API is not available yet, so the first implementation should simulate the workflow with lightweight static fixtures.
+V1 is mostly mock-driven. The correct conversational search API is not available yet, so the first implementation should simulate the conversational workflow with lightweight static fixtures while using TMDb as the first prototype entertainment metadata source.
 
 In scope:
 
 - Import a list of seed conversational search queries.
 - Associate optional golden sets and expected constraints with each query.
 - Load lightweight simulated search responses.
+- Use TMDb metadata for first prototype examples and validation, behind a replaceable metadata adapter.
 - Evaluate each response with two stages: correctness gates and quality scoring.
 - Explore suggested follow-up questions as a bounded conversation tree.
 - Support human review of AI assessments.
@@ -37,7 +38,7 @@ Out of scope for V1:
 
 - Live conversational search API integration.
 - Production WBD metadata integration.
-- Real IMDb API dependency.
+- Real IMDb Enterprise API dependency.
 - Scheduled recurring automated runs.
 - Full user management or permissions.
 - Large synthetic data generation.
@@ -127,18 +128,57 @@ At the aggregate level:
 
 ## Metadata Sources
 
-The app should support two metadata source concepts:
+For the first prototype, the app should use TMDb as the entertainment metadata source. TMDb gives the project a lower-friction way to exercise movie, TV, people, image, and search workflows while the evaluation experience is still being designed.
 
-- WBD internal metadata as the primary source of truth.
-- IMDb-style metadata as a fallback or reference source.
+The prototype should avoid coupling the reviewer workflow, scenario model, scoring surfaces, or reporting logic directly to TMDb-specific fields. The metadata layer should be treated as a replaceable adapter so the project can later swap in licensed IMDb Enterprise data and WBD enterprise data without redesigning the evaluation product.
+
+The app should support three metadata source concepts:
+
+- TMDb metadata as the first prototype source.
+- WBD enterprise metadata as the future primary source of truth.
+- IMDb Enterprise metadata as a future fallback or reference source.
 
 Rules:
 
-- If WBD metadata is available, correctness gates should use WBD as the source of truth.
-- If WBD metadata is unavailable, IMDb-style metadata can be used as fallback.
+- V1 should keep metadata access behind a replaceable adapter.
+- V1 can combine TMDb responses with static fixtures where needed to simulate unavailable WBD or IMDb fields.
+- Reviewer, scenario, scoring, and reporting models should not depend on TMDb-specific field names.
+- If WBD enterprise metadata is available, correctness gates should use WBD as the source of truth.
+- If WBD enterprise metadata is unavailable, IMDb Enterprise metadata can be used as fallback.
 - If sources disagree, record a metadata conflict warning.
 - Every validation check should record which metadata source was used.
-- V1 should simulate these sources with lightweight fixture metadata.
+
+### IMDb Enterprise Access Notes
+
+As of May 31, 2026, IMDb should be treated as a licensed data-source dependency rather than a simple free developer API.
+
+The official IMDb API is available through AWS Data Exchange as a GraphQL-backed product. Using it requires an AWS account, AWS access keys, an IMDb API subscription, and subscription-specific values such as endpoint, API key, dataset ID, revision ID, and asset ID.
+
+The documented subscription flow requires choosing an IMDb API product in AWS Marketplace, selecting "Continue to subscribe", signing into AWS, and sending a subscription request to IMDb. IMDb says subscription requests are processed by staff within five business days.
+
+Public AWS Marketplace listings currently show:
+
+- IMDb Essential Metadata for Movies/TV/OTT API: $150,000 for a 12-month contract, plus usage-based charges.
+- IMDb and Box Office Mojo for Movies/TV/OTT API: $400,000 for a 12-month contract, plus usage-based charges.
+
+IMDb also provides daily refreshed non-commercial datasets as gzipped TSV files. These may be useful for internal research or scenario prototyping only if the use qualifies as personal/non-commercial. IMDb's terms limit use to the provided datasets, require attribution, and prohibit scraping or other automated extraction from the IMDb website.
+
+Alternatives considered for early product work:
+
+- Static sample fixtures curated for evaluation scenarios.
+- TMDb, which offers a practical developer API for movie, TV, people, and image metadata, with non-commercial use available under attribution and commercial use requiring sales approval. This is the selected source for the first prototype.
+- OMDb, a simple REST API with a free key tier, but not affiliated with IMDb and licensed CC BY-NC.
+
+Reference links:
+
+- [IMDb API overview](https://developer.imdb.com/documentation/api-documentation/)
+- [IMDb API access process](https://developer.imdb.com/documentation/api-documentation/getting-access/)
+- [IMDb non-commercial datasets](https://developer.imdb.com/non-commercial-datasets/)
+- [IMDb data use rules](https://help.imdb.com/article/imdb/general-information/can-i-use-imdb-data-in-my-software/G5JTRESSHJBBHTGX)
+- [IMDb Essential Metadata API AWS listing](https://aws.amazon.com/marketplace/pp/prodview-wdqq4hg3bcbws)
+- [IMDb and Box Office Mojo API AWS listing](https://aws.amazon.com/marketplace/pp/prodview-nzspap6vaousm)
+- [TMDb API FAQ](https://developer.themoviedb.org/docs/faq)
+- [OMDb API](https://www.omdbapi.com/)
 
 ## Stage 1: Metadata And Correctness Gates
 
@@ -273,8 +313,9 @@ The mock should use a small amount of fixture data, just enough to demonstrate t
 - Live conversational search API execution.
 - Real follow-up clicking against live responses.
 - Parallel worker or sub-agent orchestration for branch evaluation.
-- WBD metadata integration.
-- IMDb or other third-party metadata enrichment.
+- WBD enterprise metadata integration.
+- IMDb Enterprise metadata integration.
+- Replacement of the TMDb prototype adapter with licensed enterprise sources.
 - Scheduled recurring evaluations.
 - Reviewer assignment and calibration.
 - Exportable reports and team sharing.
