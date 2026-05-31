@@ -446,7 +446,12 @@ function App() {
             selectedRun={selectedRun}
             selectedNodeId={selectedNode?.id ?? ''}
             onSelectQuery={selectQuery}
-            onOpenDetail={() => setActiveTab('detail')}
+            onOpenDetail={(node) => {
+              if (node) {
+                selectQuery(node);
+              }
+              setActiveTab('detail');
+            }}
           />
         ) : null}
 
@@ -638,10 +643,18 @@ function QueryExecutionView({
   selectedRun: EvaluationRun;
   selectedNodeId: string;
   onSelectQuery: (node: ConversationNode) => void;
-  onOpenDetail: () => void;
+  onOpenDetail: (node?: ConversationNode) => void;
 }) {
   const queryNodes = getRunNodes(selectedRun);
-  const seedQueryCount = queryNodes.filter((node) => node.depth === 0).length;
+  const starterNodes = queryNodes.filter((node) => node.depth === 0);
+  const selectedNode = queryNodes.find((node) => node.id === selectedNodeId);
+  const selectedStarterId =
+    selectedNode?.depth === 0
+      ? selectedNode.id
+      : getSeedRootNode(selectedRun, selectedNode?.seedId ?? '')?.id;
+  const selectedStarterNode =
+    starterNodes.find((node) => node.id === selectedStarterId) ?? starterNodes[0];
+  const seedQueryCount = starterNodes.length;
   const followUpQueryCount = queryNodes.length - seedQueryCount;
   const maxDepth = Math.max(...queryNodes.map((node) => node.depth), 0);
   const failingQueryCount = queryNodes.filter((node) => queryStatusLabel(node) === 'Failing').length;
@@ -656,7 +669,7 @@ function QueryExecutionView({
           tone="info"
         />
         <Metric
-          label="During-Run Queries"
+          label="Follow-Up Queries"
           value={String(followUpQueryCount)}
           icon={MessageSquareText}
           tone="positive"
@@ -673,26 +686,30 @@ function QueryExecutionView({
       <section className="panel query-panel">
         <div className="section-heading">
           <div>
-            <h2>Query Execution List</h2>
+            <h2>Starter Query List</h2>
             <p>{selectedRun.label}</p>
           </div>
-          <button className="primary-action" type="button" onClick={onOpenDetail}>
+          <button
+            className="primary-action"
+            type="button"
+            onClick={() => onOpenDetail(selectedStarterNode)}
+            disabled={!selectedStarterNode}
+          >
             <GitBranch aria-hidden="true" />
             Open Selected
           </button>
         </div>
 
         <div className="query-list">
-          {queryNodes.map((node, index) => {
+          {starterNodes.map((node, index) => {
             const seed = seedById[node.seedId];
-            const phase = node.depth === 0 ? 'Before Evaluation' : 'During Evaluation';
             const status = queryStatusLabel(node);
 
             return (
               <button
                 key={node.id}
                 type="button"
-                className={`query-row ${node.id === selectedNodeId ? 'selected' : ''}`}
+                className={`query-row ${node.id === selectedStarterNode?.id ? 'selected' : ''}`}
                 onClick={() => onSelectQuery(node)}
               >
                 <span className="query-index">{String(index + 1).padStart(2, '0')}</span>
@@ -703,13 +720,11 @@ function QueryExecutionView({
                   </span>
                 </span>
                 <span className="query-meta">
-                  <span className="query-chip">Depth {node.depth}</span>
+                  <span className="query-chip">First Query</span>
                   <span className="query-chip">{formatMachineLabel(seed.category)}</span>
                   <span className="query-chip">{formatMachineLabel(seed.expectedMediaType)}</span>
                 </span>
-                <span className={`query-phase ${node.depth === 0 ? 'before' : 'during'}`}>
-                  {phase}
-                </span>
+                <span className="query-phase before">Initial</span>
                 <StatusPill label={status} />
                 <span className="query-result-count">{node.resultSet.length} results</span>
                 <ChevronRight aria-hidden="true" />

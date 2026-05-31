@@ -8,10 +8,16 @@ import type {
   Stage1Finding,
 } from '../types';
 
+const starterQueryText = {
+  smartScifi: "I'm looking for smart sci-fi movies that are emotional but not too bleak",
+  keanuAction: 'What are some Keanu Reeves action movies with clever stories?',
+  workplaceMystery: 'Can you recommend unsettling mystery shows set around a workplace or institution?',
+} as const;
+
 export const seedQueries: SeedQuery[] = [
   {
     id: 'seed-smart-scifi',
-    query: 'Smart, emotional sci-fi movies for a Sunday night',
+    query: starterQueryText.smartScifi,
     category: 'mood',
     expectedMediaType: 'movie',
     expectedResultCount: { min: 7, max: 7 },
@@ -21,7 +27,7 @@ export const seedQueries: SeedQuery[] = [
   },
   {
     id: 'seed-keanu-action',
-    query: 'Keanu Reeves action movies that still feel clever',
+    query: starterQueryText.keanuAction,
     category: 'cast',
     expectedMediaType: 'movie',
     expectedResultCount: { min: 7, max: 7 },
@@ -31,7 +37,7 @@ export const seedQueries: SeedQuery[] = [
   },
   {
     id: 'seed-workplace-mystery',
-    query: 'Unsettling workplace mystery series',
+    query: starterQueryText.workplaceMystery,
     category: 'compound',
     expectedMediaType: 'series',
     expectedResultCount: { min: 7, max: 7 },
@@ -614,8 +620,8 @@ const conversationNodeFixtures: ConversationNode[] = [
     seedId: 'seed-smart-scifi',
     runId: 'run-current',
     depth: 0,
-    query: 'Smart, emotional sci-fi movies for a Sunday night',
-    path: ['Smart, emotional sci-fi movies for a Sunday night'],
+    query: starterQueryText.smartScifi,
+    path: [starterQueryText.smartScifi],
     resultSet: [
       result('tmdb-movie-329865', 1, 'Excellent', 'movie', 'movie, science fiction, emotional drama'),
       result('tmdb-movie-157336', 2, 'Excellent', 'movie', 'movie, science fiction, family drama'),
@@ -669,7 +675,7 @@ const conversationNodeFixtures: ConversationNode[] = [
     parentId: 'node-current-scifi-root',
     depth: 1,
     query: 'Make it a little lighter',
-    path: ['Smart, emotional sci-fi movies for a Sunday night', 'Make it a little lighter'],
+    path: [starterQueryText.smartScifi, 'Make it a little lighter'],
     resultSet: [
       result('tmdb-movie-152601', 1, 'Good', 'movie', 'movie, gentle speculative romance'),
       result('tmdb-movie-329865', 2, 'Good', 'movie', 'movie, thoughtful first-contact drama'),
@@ -711,7 +717,7 @@ const conversationNodeFixtures: ConversationNode[] = [
     parentId: 'node-current-scifi-root',
     depth: 1,
     query: 'More first-contact stories',
-    path: ['Smart, emotional sci-fi movies for a Sunday night', 'More first-contact stories'],
+    path: [starterQueryText.smartScifi, 'More first-contact stories'],
     resultSet: [
       result('tmdb-movie-329865', 1, 'Excellent', 'movie', 'movie, first-contact science fiction'),
       result('tmdb-movie-157336', 2, 'Good', 'movie', 'movie, cosmic science fiction'),
@@ -747,7 +753,7 @@ const conversationNodeFixtures: ConversationNode[] = [
     parentId: 'node-current-scifi-root',
     depth: 1,
     query: 'Only newer releases',
-    path: ['Smart, emotional sci-fi movies for a Sunday night', 'Only newer releases'],
+    path: [starterQueryText.smartScifi, 'Only newer releases'],
     resultSet: [
       result('tmdb-movie-438631', 1, 'Good', 'movie', 'movie, 2021 science fiction'),
       result('tmdb-movie-335984', 2, 'Good', 'movie', 'movie, 2017 science fiction'),
@@ -786,8 +792,8 @@ const conversationNodeFixtures: ConversationNode[] = [
     seedId: 'seed-keanu-action',
     runId: 'run-current',
     depth: 0,
-    query: 'Keanu Reeves action movies that still feel clever',
-    path: ['Keanu Reeves action movies that still feel clever'],
+    query: starterQueryText.keanuAction,
+    path: [starterQueryText.keanuAction],
     resultSet: [
       result('tmdb-movie-603', 1, 'Excellent', 'movie', 'movie, Keanu Reeves cast, action sci-fi'),
       result('tmdb-movie-245891', 2, 'Excellent', 'movie', 'movie, Keanu Reeves cast, action thriller'),
@@ -838,7 +844,7 @@ const conversationNodeFixtures: ConversationNode[] = [
     parentId: 'node-current-keanu-root',
     depth: 1,
     query: 'More sci-fi action',
-    path: ['Keanu Reeves action movies that still feel clever', 'More sci-fi action'],
+    path: [starterQueryText.keanuAction, 'More sci-fi action'],
     resultSet: [
       result('tmdb-movie-603', 1, 'Excellent', 'movie', 'movie, Keanu Reeves cast, science fiction action'),
       result('tmdb-movie-604', 2, 'Good', 'movie', 'movie, Keanu Reeves cast, science fiction action'),
@@ -877,7 +883,7 @@ const conversationNodeFixtures: ConversationNode[] = [
     parentId: 'node-current-keanu-root',
     depth: 1,
     query: 'Skip sequels',
-    path: ['Keanu Reeves action movies that still feel clever', 'Skip sequels'],
+    path: [starterQueryText.keanuAction, 'Skip sequels'],
     resultSet: [
       result('tmdb-movie-603', 1, 'Excellent', 'movie', 'movie, Keanu Reeves cast, original film'),
       result('tmdb-movie-245891', 2, 'Excellent', 'movie', 'movie, Keanu Reeves cast, original film'),
@@ -911,8 +917,8 @@ const conversationNodeFixtures: ConversationNode[] = [
     seedId: 'seed-workplace-mystery',
     runId: 'run-current',
     depth: 0,
-    query: 'Unsettling workplace mystery series',
-    path: ['Unsettling workplace mystery series'],
+    query: starterQueryText.workplaceMystery,
+    path: [starterQueryText.workplaceMystery],
     resultSet: [
       result('tmdb-tv-95396', 1, 'Excellent', 'series', 'series, workplace mystery'),
       result('tmdb-tv-62560', 2, 'Good', 'series', 'series, institutional thriller'),
@@ -963,7 +969,7 @@ const conversationNodeFixtures: ConversationNode[] = [
     parentId: 'node-current-workplace-root',
     depth: 1,
     query: 'More like Severance',
-    path: ['Unsettling workplace mystery series', 'More like Severance'],
+    path: [starterQueryText.workplaceMystery, 'More like Severance'],
     resultSet: [
       result('tmdb-tv-95396', 1, 'Excellent', 'series', 'series, workplace mystery'),
       result('tmdb-tv-62560', 2, 'Good', 'series', 'series, psychological tech thriller'),
@@ -1005,7 +1011,7 @@ const conversationNodeFixtures: ConversationNode[] = [
     parentId: 'node-current-workplace-root',
     depth: 1,
     query: 'Less supernatural',
-    path: ['Unsettling workplace mystery series', 'Less supernatural'],
+    path: [starterQueryText.workplaceMystery, 'Less supernatural'],
     resultSet: [
       result('tmdb-tv-62560', 1, 'Good', 'series', 'series, grounded tech thriller'),
       result('tmdb-tv-95396', 2, 'Good', 'series', 'series, workplace mystery'),
@@ -1045,8 +1051,8 @@ const conversationNodeFixtures: ConversationNode[] = [
     seedId: 'seed-smart-scifi',
     runId: 'run-baseline',
     depth: 0,
-    query: 'Smart, emotional sci-fi movies for a Sunday night',
-    path: ['Smart, emotional sci-fi movies for a Sunday night'],
+    query: starterQueryText.smartScifi,
+    path: [starterQueryText.smartScifi],
     resultSet: [
       result('tmdb-movie-157336', 1, 'Good', 'movie', 'movie, science fiction'),
       result('tmdb-movie-335984', 2, 'Good', 'movie', 'movie, science fiction'),
@@ -1092,8 +1098,8 @@ const conversationNodeFixtures: ConversationNode[] = [
     seedId: 'seed-keanu-action',
     runId: 'run-baseline',
     depth: 0,
-    query: 'Keanu Reeves action movies that still feel clever',
-    path: ['Keanu Reeves action movies that still feel clever'],
+    query: starterQueryText.keanuAction,
+    path: [starterQueryText.keanuAction],
     resultSet: [
       result('tmdb-movie-603', 1, 'Excellent', 'movie', 'movie, Keanu Reeves cast'),
       result('tmdb-movie-438631', 2, 'Fail', 'movie', 'movie, no Keanu Reeves cast match'),
@@ -1147,8 +1153,8 @@ const conversationNodeFixtures: ConversationNode[] = [
     seedId: 'seed-workplace-mystery',
     runId: 'run-baseline',
     depth: 0,
-    query: 'Unsettling workplace mystery series',
-    path: ['Unsettling workplace mystery series'],
+    query: starterQueryText.workplaceMystery,
+    path: [starterQueryText.workplaceMystery],
     resultSet: [
       result('tmdb-tv-66732', 1, 'Needs Work', 'series', 'series, mystery but weak workplace fit'),
       result('tmdb-tv-70523', 2, 'Good', 'series', 'series, mystery thriller'),
