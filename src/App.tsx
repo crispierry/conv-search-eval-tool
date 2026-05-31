@@ -703,9 +703,9 @@ function QueryExecutionView({
                   </span>
                 </span>
                 <span className="query-meta">
-                  <span>Depth {node.depth}</span>
-                  <span>{formatMachineLabel(seed.category)}</span>
-                  <span>{formatMachineLabel(seed.expectedMediaType)}</span>
+                  <span className="query-chip">Depth {node.depth}</span>
+                  <span className="query-chip">{formatMachineLabel(seed.category)}</span>
+                  <span className="query-chip">{formatMachineLabel(seed.expectedMediaType)}</span>
                 </span>
                 <span className={`query-phase ${node.depth === 0 ? 'before' : 'during'}`}>
                   {phase}
