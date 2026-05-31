@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   BarChart3,
   CheckCircle2,
@@ -74,6 +74,43 @@ const shortDateFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   day: 'numeric',
 });
+
+const reviewStorageKey = 'conv-search-eval-tool.review-state.v1';
+
+function readStoredReviewState() {
+  if (typeof window === 'undefined') {
+    return {};
+  }
+
+  try {
+    const stored = window.localStorage.getItem(reviewStorageKey);
+    return stored ? (JSON.parse(stored) as Partial<{
+      qualityReviews: QualityReviewMap;
+      gateReviews: GateReviewMap;
+    }>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveReviewState(qualityReviews: QualityReviewMap, gateReviews: GateReviewMap) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      reviewStorageKey,
+      JSON.stringify({
+        savedAt: new Date().toISOString(),
+        qualityReviews,
+        gateReviews,
+      }),
+    );
+  } catch {
+    // Local review state is a convenience for the mock, so storage failures should not block review.
+  }
+}
 
 function formatDate(date: string) {
   return dateTimeFormatter.format(new Date(date));
@@ -263,10 +300,14 @@ function App() {
   const [selectedNodeId, setSelectedNodeId] = useState(
     getDefaultNodeForRun(evaluationRuns[0])?.id ?? '',
   );
-  const [qualityReviews, setQualityReviews] = useState<QualityReviewMap>(() =>
-    initialQualityReviews(),
-  );
-  const [gateReviews, setGateReviews] = useState<GateReviewMap>(() => initialGateReviews());
+  const [qualityReviews, setQualityReviews] = useState<QualityReviewMap>(() => ({
+    ...initialQualityReviews(),
+    ...(readStoredReviewState().qualityReviews ?? {}),
+  }));
+  const [gateReviews, setGateReviews] = useState<GateReviewMap>(() => ({
+    ...initialGateReviews(),
+    ...(readStoredReviewState().gateReviews ?? {}),
+  }));
 
   const selectedRun = evaluationRuns.find((run) => run.id === selectedRunId) ?? evaluationRuns[0];
   const selectedNode = nodeById[selectedNodeId] ?? getDefaultNodeForRun(selectedRun);
@@ -279,7 +320,11 @@ function App() {
     [qualityReviews, gateReviews],
   );
   const selectedRollup = rollups[selectedRun.id];
-  const tmdbMode = hasTmdbToken() ? 'Live token configured' : 'TMDB fixture mode';
+  const tmdbMode = hasTmdbToken() ? 'TMDB fixture data · token ready' : 'TMDB fixture data';
+
+  useEffect(() => {
+    saveReviewState(qualityReviews, gateReviews);
+  }, [qualityReviews, gateReviews]);
 
   function selectRun(run: EvaluationRun) {
     const nextNode = getDefaultNodeForRun(run);
@@ -826,6 +871,19 @@ function HumanReviewView({
                     <span>TMDB {media.voteAverage.toFixed(1)}</span>
                     <span>{media.genres.slice(0, 2).join(', ')}</span>
                   </div>
+                  <div className="metadata-checks">
+                    {resultItem.metadataChecks.map((check) => (
+                      <div className="metadata-check" key={check.id}>
+                        <StatusPill label={check.outcome} />
+                        <div>
+                          <strong>{check.field}</strong>
+                          <p>
+                            Expected {check.expected}; actual {check.actual}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </article>
             );
@@ -911,7 +969,10 @@ function HumanReviewView({
         <div className="review-form-list">
           {node.stage1Findings.map((finding) => {
             const review = gateReviews[gateReviewKey(node.id, finding.id)];
-            const decisions: GateDecision[] = ['Open', 'Acknowledged', 'False Positive'];
+            const decisions: GateDecision[] =
+              finding.outcome === 'Fail'
+                ? ['Open', 'Acknowledged', 'False Positive']
+                : ['Open', 'Acknowledged'];
             return (
               <article className="gate-form" key={finding.id}>
                 <div className="finding-line">

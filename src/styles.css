@@ -710,6 +710,28 @@ footer {
   background: #ffffff;
 }
 
+.metadata-checks {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+}
+
+.metadata-check {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.55rem;
+  padding: 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.metadata-check p {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
 .reviewer-panel,
 .gate-review-panel,
 .review-context {
