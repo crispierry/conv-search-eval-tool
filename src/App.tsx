@@ -1332,13 +1332,13 @@ function RunsView({
         </div>
         <div className="review-rollup">
           <Metric
-            label="Approved AI Scores"
+            label="Approved Stage 2 Areas"
             value={String(selectedRollup.approvedQualityChecks)}
             icon={CheckCircle2}
             tone="positive"
           />
           <Metric
-            label="Rejected AI Scores"
+            label="Rejected Stage 2 Areas"
             value={String(selectedRollup.rejectedQualityChecks)}
             icon={CircleAlert}
             tone={selectedRollup.rejectedQualityChecks ? 'warning' : 'neutral'}
@@ -1814,6 +1814,21 @@ function HumanReviewView({
     });
   }
 
+  function updateResultPositionDecision(
+    mediaId: string,
+    currentRank: number,
+    decision: ReviewDecision,
+  ) {
+    const key = copyReviewKey(node.id, 'result-position', mediaId);
+    const position =
+      decision === 'Approved' ? currentRank : copyReviews[key]?.position ?? currentRank;
+
+    onUpdateCopyReview(node.id, 'result-position', mediaId, { decision, position });
+    onUpdateQualityReview(node.id, 'Search Results', {
+      decision: searchResultsAggregateDecision({ [key]: decision }),
+    });
+  }
+
   function updateTitleDescriptionJudgment(
     mediaId: string,
     patch: Partial<CopyReviewMap[string]>,
@@ -1909,7 +1924,20 @@ function HumanReviewView({
                   <h3>{media.title}</h3>
                   <p>{media.year} · {media.runtimeLabel}</p>
                   <div className="position-review-row">
-                    <label htmlFor={positionSelectId}>Correct position</label>
+                    <div className="position-review-header">
+                      <label htmlFor={positionSelectId}>Correct position</label>
+                      <HumanDecisionControls
+                        ariaLabel={`${media.title} rank position judgment`}
+                        decision={resultPositionReview?.decision ?? 'Pending'}
+                        onChange={(decision) =>
+                          updateResultPositionDecision(
+                            resultItem.mediaId,
+                            resultItem.rank,
+                            decision,
+                          )
+                        }
+                      />
+                    </div>
                     <select
                       id={positionSelectId}
                       value={resultPositionReview?.position ?? resultItem.rank}

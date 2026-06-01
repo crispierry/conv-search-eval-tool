@@ -812,6 +812,23 @@ footer {
   margin-top: 0.2rem;
 }
 
+.position-review-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.position-review-header .human-decision-controls {
+  min-width: 7.4rem;
+  grid-template-columns: repeat(2, minmax(3.45rem, 1fr));
+}
+
+.position-review-header .human-decision-button {
+  min-height: 2.2rem;
+  padding: 0 0.5rem;
+}
+
 .position-review-row label {
   color: var(--muted);
   font-size: 0.74rem;

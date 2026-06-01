@@ -119,6 +119,11 @@ function effectiveQualityScore(
 ) {
   const automated = node.qualityAssessments.find((assessment) => assessment.area === area);
   const review = qualityReviews[qualityReviewKey(node.id, area)];
+
+  if (review?.decision === 'Rejected') {
+    return qualityScores.Fail;
+  }
+
   const label = review?.label ?? automated?.label ?? 'Fail';
   return qualityScores[label];
 }

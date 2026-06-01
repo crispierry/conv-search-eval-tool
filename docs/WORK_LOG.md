@@ -14,8 +14,8 @@ Use this file to capture lightweight pending product and UX work items before th
 
 ### Open
 
-- [ ] WL-7 - Human-review scoring semantics: decide how Check/X judgments should affect Stage 2 quality scores and trend rollups, including whether binary decisions map directly to quality labels or remain separate audit fields.
-- [ ] WL-8 - Rank-position approval affordance: make it possible to explicitly approve the current rank position without changing the correct-position dropdown away and back.
+- [ ] WL-7 - Human-review scoring semantics: implemented the first-pass rule where rejected Check/X judgments count as Stage 2 failures in quality scores and trend rollups, while approved or pending judgments preserve the reviewed/automated quality label. Keep open until the user confirms this scoring policy is final.
+- [ ] WL-8 - Rank-position approval affordance: added explicit Check/X controls beside each correct-position selector so reviewers can approve the current rank without changing the dropdown. Keep open until the user confirms the interaction is final.
 
 ## 2026-05-31
 
