@@ -102,6 +102,7 @@ const followUp = (
 ): FollowUpSuggestion => ({ id, text, type, patternKey, targetNodeId });
 
 const targetResultCount = 7;
+const populatedPathDepth = 5;
 
 type ResultBackfill = {
   mediaId: string;
@@ -912,6 +913,144 @@ function withSevenResults(node: ConversationNode): ConversationNode {
   };
 }
 
+const generatedFollowUpTextByDepth = [
+  '',
+  'Narrow this direction',
+  'Add one more constraint',
+  'Compare a nearby option',
+  'Refine the recommendation set',
+  'Final depth check',
+];
+
+function generatedFixtureId(value: string) {
+  return value
+    .replace(/^node-/, '')
+    .replace(/^fu-/, '')
+    .replace(/[^a-z0-9]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase();
+}
+
+function generatedNodeId(parent: ConversationNode, followUpSuggestion: FollowUpSuggestion) {
+  return `node-generated-${generatedFixtureId(parent.id)}-${generatedFixtureId(followUpSuggestion.id)}`;
+}
+
+function generatedFollowUpFor(parent: ConversationNode): FollowUpSuggestion {
+  const nextDepth = parent.depth + 1;
+  const text = generatedFollowUpTextByDepth[nextDepth] ?? 'Continue this path';
+
+  return followUp(
+    `fu-generated-${generatedFixtureId(parent.id)}-depth-${nextDepth}`,
+    text,
+    nextDepth % 2 === 0 ? 'refine' : 'broaden',
+    `fixture-depth-${nextDepth}`,
+  );
+}
+
+function generatedResultsFor(parent: ConversationNode, depth: number) {
+  const backfill = resultBackfillFor(parent);
+  const expected = expectedMediaTypeFor(parent);
+  const offset = backfill.length ? depth % backfill.length : 0;
+  const rotated = [...backfill.slice(offset), ...backfill.slice(0, offset)].slice(0, 4);
+
+  return rotated.map((item, index) =>
+    result(item.mediaId, index + 1, item.relevance, expected, item.actual),
+  );
+}
+
+function generatedDescriptionsFor(parent: ConversationNode, depth: number) {
+  const backfill = resultBackfillFor(parent);
+  const offset = backfill.length ? depth % backfill.length : 0;
+  const rotated = [...backfill.slice(offset), ...backfill.slice(0, offset)].slice(0, 4);
+
+  return Object.fromEntries(rotated.map((item) => [item.mediaId, item.description]));
+}
+
+function makeGeneratedFollowUpNode(
+  parent: ConversationNode,
+  followUpSuggestion: FollowUpSuggestion,
+  nodeId: string,
+): ConversationNode {
+  const depth = parent.depth + 1;
+  const hasMoreDepth = depth < populatedPathDepth;
+
+  return {
+    id: nodeId,
+    seedId: parent.seedId,
+    runId: parent.runId,
+    parentId: parent.id,
+    depth,
+    query: followUpSuggestion.text,
+    path: [...parent.path, followUpSuggestion.text],
+    resultSet: generatedResultsFor(parent, depth),
+    blurb: `This branch keeps the original search intent while applying "${followUpSuggestion.text}" as the next conversational turn.`,
+    customDescriptions: generatedDescriptionsFor(parent, depth),
+    followUps: hasMoreDepth ? [generatedFollowUpFor({ ...parent, id: nodeId, depth })] : [],
+    stage1Findings: [
+      passFinding(
+        `gate-${generatedFixtureId(nodeId)}-response-complete`,
+        'Response completeness',
+        'This follow-up response includes returned titles, copy, and metadata checks.',
+        `Depth ${depth} is populated for review.`,
+      ),
+    ],
+    qualityAssessments: [
+      quality('Search Results', 'Good', 'The result set stays close enough to the branch intent for workflow review.'),
+      quality('Blurb', 'Good', 'The blurb names the applied follow-up turn.'),
+      quality('Custom Descriptions', 'Good', 'Descriptions remain specific enough for reviewer judgment.'),
+      quality(
+        'Follow-Up Suggestions',
+        'Good',
+        hasMoreDepth
+          ? 'A continuation is available so the branch can be reviewed at the next depth.'
+          : 'The branch reaches the configured final review depth.',
+      ),
+    ],
+    metadataSource: 'TMDB',
+    rawPayloadId: `tmdb-fixture-${generatedFixtureId(nodeId)}`,
+  };
+}
+
+function withPopulatedFollowUpPaths(nodes: ConversationNode[]) {
+  const populatedNodes = nodes.map((node) => ({
+    ...node,
+    followUps: node.followUps.map((followUpSuggestion) => ({ ...followUpSuggestion })),
+  }));
+  const nodesById = new Map(populatedNodes.map((node) => [node.id, node]));
+
+  for (let index = 0; index < populatedNodes.length; index += 1) {
+    const node = populatedNodes[index];
+
+    if (node.depth >= populatedPathDepth) {
+      continue;
+    }
+
+    const followUps = node.followUps.length ? node.followUps : [generatedFollowUpFor(node)];
+
+    node.followUps = followUps.map((followUpSuggestion) => {
+      if (followUpSuggestion.targetNodeId && nodesById.has(followUpSuggestion.targetNodeId)) {
+        return followUpSuggestion;
+      }
+
+      const targetNodeId = followUpSuggestion.targetNodeId ?? generatedNodeId(node, followUpSuggestion);
+      let targetNode = nodesById.get(targetNodeId);
+
+      if (!targetNode) {
+        targetNode = makeGeneratedFollowUpNode(node, followUpSuggestion, targetNodeId);
+        populatedNodes.push(targetNode);
+        nodesById.set(targetNode.id, targetNode);
+      }
+
+      return {
+        ...followUpSuggestion,
+        targetNodeId: targetNode.id,
+      };
+    });
+  }
+
+  return populatedNodes;
+}
+
 const nodeResults = (
   expected: string,
   entries: Array<[string, SearchResult['relevance'], string]>,
@@ -1409,14 +1548,6 @@ const additionalRootNodeFixtures: ConversationNode[] = [
     rawPayloadId: 'tmdb-fixture-baseline-tech-paranoia-root',
   }),
 ];
-
-const currentAdditionalRootNodeIds = additionalRootNodeFixtures
-  .filter((node) => node.runId === 'run-current')
-  .map((node) => node.id);
-
-const baselineAdditionalRootNodeIds = additionalRootNodeFixtures
-  .filter((node) => node.runId === 'run-baseline')
-  .map((node) => node.id);
 
 const conversationNodeFixtures: ConversationNode[] = [
   {
@@ -2009,7 +2140,12 @@ const conversationNodeFixtures: ConversationNode[] = [
   ...additionalRootNodeFixtures,
 ];
 
-export const conversationNodes: ConversationNode[] = conversationNodeFixtures.map(withSevenResults);
+export const conversationNodes: ConversationNode[] =
+  withPopulatedFollowUpPaths(conversationNodeFixtures).map(withSevenResults);
+
+function nodeIdsForRun(runId: string) {
+  return conversationNodes.filter((node) => node.runId === runId).map((node) => node.id);
+}
 
 export const evaluationRuns: EvaluationRun[] = [
   {
@@ -2021,19 +2157,7 @@ export const evaluationRuns: EvaluationRun[] = [
     querySetVersion,
     configVersion: 'eval-config-v1',
     seedIds: [...allSeedIds],
-    nodeIds: [
-      'node-current-scifi-root',
-      'node-current-scifi-lighter',
-      'node-current-scifi-first-contact',
-      'node-current-scifi-newer',
-      'node-current-keanu-root',
-      'node-current-keanu-scifi',
-      'node-current-keanu-no-sequels',
-      'node-current-workplace-root',
-      'node-current-workplace-severance',
-      'node-current-workplace-grounded',
-      ...currentAdditionalRootNodeIds,
-    ],
+    nodeIds: nodeIdsForRun('run-current'),
     snapshot: {
       status: 'Needs Review',
       stage1FailureRate: 10,
@@ -2052,12 +2176,7 @@ export const evaluationRuns: EvaluationRun[] = [
     querySetVersion,
     configVersion: 'eval-config-v1',
     seedIds: [...allSeedIds],
-    nodeIds: [
-      'node-baseline-scifi-root',
-      'node-baseline-keanu-root',
-      'node-baseline-workplace-root',
-      ...baselineAdditionalRootNodeIds,
-    ],
+    nodeIds: nodeIdsForRun('run-baseline'),
     snapshot: {
       status: 'Failing',
       stage1FailureRate: 100,

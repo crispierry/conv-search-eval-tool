@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   BarChart3,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   CircleAlert,
   ClipboardCheck,
@@ -53,6 +54,7 @@ import type {
   QualityLabel,
   QualityReviewMap,
   RunRollup,
+  SeedQuery,
   Stage1Outcome,
 } from './types';
 
@@ -77,6 +79,19 @@ const shortDateFormatter = new Intl.DateTimeFormat('en-US', {
 });
 
 const reviewStorageKey = 'conv-search-eval-tool.review-state.v1';
+const maxConversationDepth = 4;
+
+type TreeBranchState = 'available' | 'dead-end' | 'not-fixture-backed';
+
+interface ConversationTreeItem {
+  id: string;
+  depth: number;
+  label: string;
+  path: string[];
+  state: TreeBranchState;
+  nodeId?: string;
+  parentNodeId?: string;
+}
 
 function readStoredReviewState() {
   if (typeof window === 'undefined') {
@@ -168,10 +183,197 @@ function queryStatusLabel(node: ConversationNode) {
   return hasWarning ? 'Needs Review' : 'Passing';
 }
 
+function seedStatusLabel(run: EvaluationRun, seedId: string) {
+  const nodes = getSeedNodes(run, seedId);
+
+  if (nodes.length === 0) {
+    return 'Needs Review';
+  }
+
+  const hasFailure = nodes.some((node) =>
+    node.stage1Findings.some((finding) => finding.outcome === 'Fail'),
+  );
+
+  if (hasFailure) {
+    return 'Failing';
+  }
+
+  const hasWarning = nodes.some((node) =>
+    node.stage1Findings.some((finding) => finding.outcome === 'Warning'),
+  );
+
+  return hasWarning ? 'Needs Review' : 'Passing';
+}
+
 function formatMachineLabel(value: string) {
   return value
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function conversationTurnLabel(depth: number) {
+  return `Turn ${depth + 1}`;
+}
+
+function branchStateLabel(state: TreeBranchState) {
+  if (state === 'dead-end') {
+    return 'Dead end';
+  }
+
+  if (state === 'not-fixture-backed') {
+    return 'No saved response';
+  }
+
+  return 'Available';
+}
+
+function branchStateIcon(state: TreeBranchState) {
+  if (state === 'dead-end') {
+    return XCircle;
+  }
+
+  if (state === 'not-fixture-backed') {
+    return CircleAlert;
+  }
+
+  return CheckCircle2;
+}
+
+function getAncestorNodeIds(node: ConversationNode, nodesById: Map<string, ConversationNode>) {
+  const ancestorIds = new Set<string>();
+  let current: ConversationNode | undefined = node;
+
+  while (current) {
+    ancestorIds.add(current.id);
+    current = current.parentId ? nodesById.get(current.parentId) : undefined;
+  }
+
+  return ancestorIds;
+}
+
+function getSelectedPathNodes(node: ConversationNode, nodesById: Map<string, ConversationNode>) {
+  const pathNodes: ConversationNode[] = [];
+  let current: ConversationNode | undefined = node;
+
+  while (current) {
+    pathNodes.unshift(current);
+    current = current.parentId ? nodesById.get(current.parentId) : undefined;
+  }
+
+  return pathNodes;
+}
+
+function conversationTreeItemForNode(
+  node: ConversationNode,
+  fallbackLabel = node.query,
+): ConversationTreeItem {
+  return {
+    id: `node-${node.id}`,
+    depth: node.depth,
+    label: fallbackLabel,
+    path: node.path,
+    state: 'available',
+    nodeId: node.id,
+    parentNodeId: node.parentId,
+  };
+}
+
+function getFollowUpTreeItems(
+  parent: ConversationNode,
+  nodesById: Map<string, ConversationNode>,
+) {
+  const nextDepth = parent.depth + 1;
+
+  if (nextDepth > maxConversationDepth) {
+    return [];
+  }
+
+  if (parent.followUps.length === 0) {
+    return [
+      {
+        id: `dead-${parent.id}-${nextDepth}`,
+        depth: nextDepth,
+        label: 'No follow-up suggestions returned',
+        path: [...parent.path, 'No follow-up suggestions returned'],
+        state: 'dead-end' as const,
+        parentNodeId: parent.id,
+      },
+    ];
+  }
+
+  return parent.followUps.map((followUp) => {
+    const targetNode = followUp.targetNodeId ? nodesById.get(followUp.targetNodeId) : undefined;
+
+    if (targetNode) {
+      return {
+        ...conversationTreeItemForNode(targetNode, followUp.text),
+        id: `followup-${parent.id}-${followUp.id}`,
+        parentNodeId: parent.id,
+      };
+    }
+
+    return {
+      id: `stub-${parent.id}-${followUp.id}`,
+      depth: nextDepth,
+      label: followUp.text,
+      path: [...parent.path, followUp.text],
+      state: 'not-fixture-backed' as const,
+      parentNodeId: parent.id,
+    };
+  });
+}
+
+function getFirstAvailableChild(
+  parent: ConversationNode | undefined,
+  nodesById: Map<string, ConversationNode>,
+) {
+  if (!parent) {
+    return undefined;
+  }
+
+  const firstBackedFollowUp = parent.followUps.find(
+    (followUp) => followUp.targetNodeId && nodesById.has(followUp.targetNodeId),
+  );
+
+  return firstBackedFollowUp?.targetNodeId
+    ? nodesById.get(firstBackedFollowUp.targetNodeId)
+    : undefined;
+}
+
+function buildActiveConversationTreeItems(
+  nodes: ConversationNode[],
+  selectedNode: ConversationNode,
+) {
+  const nodesById = new Map(nodes.map((node) => [node.id, node]));
+  const selectedPathNodes = getSelectedPathNodes(selectedNode, nodesById);
+  const rootNode = selectedPathNodes[0] ?? nodes.find((node) => node.depth === 0);
+  const activePathNodes: Array<ConversationNode | undefined> = Array.from({
+    length: maxConversationDepth + 1,
+  });
+
+  if (rootNode) {
+    activePathNodes[0] = rootNode;
+  }
+
+  for (let depth = 1; depth <= maxConversationDepth; depth += 1) {
+    activePathNodes[depth] =
+      selectedPathNodes[depth] ?? getFirstAvailableChild(activePathNodes[depth - 1], nodesById);
+  }
+
+  const itemsByDepth = activePathNodes.map((node, depth) => {
+    if (depth === 0) {
+      return node ? [conversationTreeItemForNode(node)] : [];
+    }
+
+    const parent = activePathNodes[depth - 1];
+    return parent ? getFollowUpTreeItems(parent, nodesById) : [];
+  });
+
+  return {
+    activePathIds: new Set(activePathNodes.map((node) => node?.id).filter(Boolean)),
+    itemsByDepth,
+    nodesById,
+  };
 }
 
 function StatusPill({ label }: { label: string }) {
@@ -211,6 +413,251 @@ function QualitySignal({ assessment }: { assessment?: QualityAssessment }) {
     <div className="quality-signal">
       <span className="quality-rationale">{assessment.rationale}</span>
     </div>
+  );
+}
+
+function ExecutedQueryNavigator({
+  run,
+  selectedSeedId,
+  onSelectSeed,
+}: {
+  run: EvaluationRun;
+  selectedSeedId: string;
+  onSelectSeed: (seedId: string) => void;
+}) {
+  const queryItems = useMemo(
+    () =>
+      getRunSeeds(run).reduce<Array<{ seed: SeedQuery; rootNode: ConversationNode }>>(
+        (items, seed) => {
+          const rootNode = getSeedRootNode(run, seed.id);
+
+          if (rootNode) {
+            items.push({ seed, rootNode });
+          }
+
+          return items;
+        },
+        [],
+      ),
+    [run],
+  );
+  const selectedIndex = Math.max(
+    0,
+    queryItems.findIndex((item) => item.seed.id === selectedSeedId),
+  );
+  const selectedItem = queryItems[selectedIndex] ?? queryItems[0];
+  const previousItem = selectedIndex > 0 ? queryItems[selectedIndex - 1] : undefined;
+  const nextItem = selectedIndex < queryItems.length - 1 ? queryItems[selectedIndex + 1] : undefined;
+
+  if (!selectedItem) {
+    return null;
+  }
+
+  return (
+    <section className="executed-query-nav" aria-label="Executed query navigation">
+      <div className="query-nav-summary">
+        <span>Executed Query</span>
+        <strong>{selectedIndex + 1} of {queryItems.length}</strong>
+        <StatusPill label={seedStatusLabel(run, selectedItem.seed.id)} />
+      </div>
+      <div className="query-nav-select">
+        <strong className="query-nav-current">{selectedItem.rootNode.query}</strong>
+        <select
+          aria-label="Executed query"
+          value={selectedItem.seed.id}
+          onChange={(event) => onSelectSeed(event.target.value)}
+        >
+          {queryItems.map((item, index) => (
+            <option key={item.seed.id} value={item.seed.id}>
+              Query {index + 1} · {formatMachineLabel(item.seed.category)}
+            </option>
+          ))}
+        </select>
+        <small>
+          {formatMachineLabel(selectedItem.seed.category)} ·{' '}
+          {formatMachineLabel(selectedItem.seed.expectedMediaType)}
+        </small>
+      </div>
+      <div className="query-nav-actions">
+        <button
+          type="button"
+          className="query-nav-button"
+          onClick={() => previousItem && onSelectSeed(previousItem.seed.id)}
+          disabled={!previousItem}
+        >
+          <ChevronLeft aria-hidden="true" />
+          Previous
+        </button>
+        <button
+          type="button"
+          className="query-nav-button"
+          onClick={() => nextItem && onSelectSeed(nextItem.seed.id)}
+          disabled={!nextItem}
+        >
+          Next
+          <ChevronRight aria-hidden="true" />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function QueryListColumn({
+  run,
+  selectedSeedId,
+  onSelectSeed,
+}: {
+  run: EvaluationRun;
+  selectedSeedId: string;
+  onSelectSeed: (seedId: string) => void;
+}) {
+  const queryItems = useMemo(
+    () =>
+      getRunSeeds(run).reduce<Array<{ seed: SeedQuery; rootNode: ConversationNode }>>(
+        (items, seed) => {
+          const rootNode = getSeedRootNode(run, seed.id);
+
+          if (rootNode) {
+            items.push({ seed, rootNode });
+          }
+
+          return items;
+        },
+        [],
+      ),
+    [run],
+  );
+
+  return (
+    <aside className="panel detail-column query-list-column">
+      <div className="section-heading compact">
+        <h2>Queries</h2>
+        <span>{queryItems.length}</span>
+      </div>
+      <div className="detail-query-list">
+        {queryItems.map((item, index) => (
+          <button
+            key={item.seed.id}
+            type="button"
+            className={item.seed.id === selectedSeedId ? 'selected' : ''}
+            onClick={() => onSelectSeed(item.seed.id)}
+          >
+            <span className="query-index">{String(index + 1).padStart(2, '0')}</span>
+            <strong>{item.rootNode.query}</strong>
+            <small>
+              {formatMachineLabel(item.seed.category)} ·{' '}
+              {formatMachineLabel(item.seed.expectedMediaType)}
+            </small>
+            <StatusPill label={seedStatusLabel(run, item.seed.id)} />
+          </button>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+function ConversationTreeNavigator({
+  nodes,
+  selectedNode,
+  onSelectNode,
+}: {
+  nodes: ConversationNode[];
+  selectedNode: ConversationNode;
+  onSelectNode: (nodeId: string) => void;
+}) {
+  const {
+    activePathIds,
+    itemsByDepth,
+    nodesById,
+  } = useMemo(
+    () => buildActiveConversationTreeItems(nodes, selectedNode),
+    [nodes, selectedNode],
+  );
+  const selectedPathIds = useMemo(
+    () => getAncestorNodeIds(selectedNode, nodesById),
+    [nodesById, selectedNode],
+  );
+
+  return (
+    <section className="conversation-tree">
+      <div className="section-heading compact">
+        <h3>Conversation Tree</h3>
+        <span>Depth 0-{maxConversationDepth}</span>
+      </div>
+      <div className="tree-depth-grid">
+        {itemsByDepth.map((items, depth) => (
+          <div className="tree-depth" key={depth}>
+            <div className="tree-depth-heading">
+              <strong>Depth {depth}</strong>
+              <span>{conversationTurnLabel(depth)}</span>
+            </div>
+            <div className="tree-item-list">
+              {items.length ? (
+                items.map((item) => {
+                  const isAvailable = item.state === 'available' && item.nodeId;
+                  const isCurrent = item.nodeId === selectedNode.id;
+                  const isInSelectedPath = item.nodeId ? selectedPathIds.has(item.nodeId) : false;
+                  const isFromCurrentNode = item.parentNodeId === selectedNode.id;
+                  const isExpanded = item.nodeId ? activePathIds.has(item.nodeId) : false;
+                  const Icon = branchStateIcon(item.state);
+                  const className = [
+                    'tree-card',
+                    item.state,
+                    isCurrent ? 'current' : '',
+                    isInSelectedPath && !isCurrent ? 'in-path' : '',
+                    isExpanded && !isInSelectedPath ? 'preview-path' : '',
+                    isFromCurrentNode ? 'from-current' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ');
+                  const content = (
+                    <>
+                      <span className="tree-state">
+                        <Icon aria-hidden="true" />
+                        {isCurrent
+                          ? 'Current'
+                          : isInSelectedPath
+                            ? 'Selected Path'
+                            : isExpanded
+                              ? 'Expanded'
+                              : branchStateLabel(item.state)}
+                      </span>
+                      <strong>{item.label}</strong>
+                      <small>{item.path.join(' / ')}</small>
+                    </>
+                  );
+
+                  return isAvailable ? (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={className}
+                      onClick={() => item.nodeId && onSelectNode(item.nodeId)}
+                      aria-current={isCurrent ? 'true' : undefined}
+                    >
+                      {content}
+                    </button>
+                  ) : (
+                    <div className={className} key={item.id}>
+                      {content}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="tree-card empty-depth">
+                  <span className="tree-state">
+                    <CircleAlert aria-hidden="true" />
+                    No saved response
+                  </span>
+                  <strong>No branch at this depth</strong>
+                  <small>Depth {depth} has no saved node in this run.</small>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -389,6 +836,17 @@ function App() {
     setSelectedNodeId(root?.id ?? getSeedNodes(selectedRun, seedId)[0]?.id ?? '');
   }
 
+  function selectNode(nodeId: string) {
+    const nextNode = nodeById[nodeId];
+
+    if (nextNode) {
+      setSelectedSeedId(nextNode.seedId);
+      setSelectedRunId(nextNode.runId);
+    }
+
+    setSelectedNodeId(nodeId);
+  }
+
   function selectQuery(node: ConversationNode) {
     setSelectedSeedId(node.seedId);
     setSelectedNodeId(node.id);
@@ -494,17 +952,19 @@ function App() {
             selectedSeedId={selectedSeed.id}
             selectedNode={selectedNode}
             onSelectSeed={selectSeed}
-            onSelectNode={setSelectedNodeId}
+            onSelectNode={selectNode}
             onOpenReview={() => setActiveTab('review')}
           />
         ) : null}
 
         {activeTab === 'review' && selectedNode ? (
           <HumanReviewView
+            run={selectedRun}
             node={selectedNode}
             gateReviews={gateReviews}
             qualityReviews={qualityReviews}
-            onSelectNode={setSelectedNodeId}
+            onSelectSeed={selectSeed}
+            onSelectNode={selectNode}
             onUpdateGateReview={updateGateReview}
             onUpdateQualityReview={updateQualityReview}
           />
@@ -735,7 +1195,7 @@ function QueryExecutionView({
         <div className="query-list">
           {starterNodes.map((node, index) => {
             const seed = seedById[node.seedId];
-            const status = queryStatusLabel(node);
+            const status = seedStatusLabel(selectedRun, node.seedId);
 
             return (
               <button
@@ -787,52 +1247,94 @@ function AutomatedDetailView({
   onOpenReview: () => void;
 }) {
   const seedNodes = getSeedNodes(run, selectedSeedId);
-  const rootSeeds = getRunSeeds(run);
   const searchResultsAssessment = getQualityAssessment(selectedNode, 'Search Results');
   const blurbAssessment = getQualityAssessment(selectedNode, 'Blurb');
   const customDescriptionsAssessment = getQualityAssessment(selectedNode, 'Custom Descriptions');
   const followUpAssessment = getQualityAssessment(selectedNode, 'Follow-Up Suggestions');
 
   return (
-    <div className="view-grid detail-grid">
-      <aside className="panel side-panel">
-        <div className="section-heading compact">
-          <h2>Seed Queries</h2>
-          <span>{run.querySetVersion}</span>
+    <div className="view-grid detail-grid detail-four-column">
+      <QueryListColumn
+        run={run}
+        selectedSeedId={selectedSeedId}
+        onSelectSeed={onSelectSeed}
+      />
+
+      <section className="panel detail-column conversation-column">
+        <div className="section-heading">
+          <div>
+            <h2>Conversation</h2>
+            <p>{selectedNode.path.join(' / ')}</p>
+          </div>
+          <StatusPill label={queryStatusLabel(selectedNode)} />
         </div>
-        <div className="seed-list">
-          {rootSeeds.map((seed) => {
-            const root = getSeedRootNode(run, seed.id);
-            const hasFailure = root?.stage1Findings.some((finding) => finding.outcome === 'Fail');
+
+        <ConversationTreeNavigator
+          nodes={seedNodes}
+          selectedNode={selectedNode}
+          onSelectNode={onSelectNode}
+        />
+      </section>
+
+      <section className="panel detail-column results-column">
+        <div className="section-heading">
+          <div>
+            <h2>Search Results</h2>
+            <p>{selectedNode.query}</p>
+          </div>
+          {searchResultsAssessment ? <QualityPill label={searchResultsAssessment.label} /> : null}
+        </div>
+        {searchResultsAssessment ? <QualitySignal assessment={searchResultsAssessment} /> : null}
+
+        <div className="result-strip">
+          {selectedNode.resultSet.map((resultItem) => {
+            const media = mediaById[resultItem.mediaId];
+            if (!media) {
+              return null;
+            }
+
             return (
-              <button
-                key={seed.id}
-                type="button"
-                className={selectedSeedId === seed.id ? 'selected' : ''}
-                onClick={() => onSelectSeed(seed.id)}
-              >
-                <span>{seed.query}</span>
-                <small>{seed.category} · {seed.expectedMediaType}</small>
-                <StatusPill label={hasFailure ? 'Needs Review' : 'Passing'} />
-              </button>
+              <article className="title-tile" key={resultItem.mediaId}>
+                <MediaPoster mediaId={resultItem.mediaId} />
+                <div>
+                  <span className="rank">#{resultItem.rank}</span>
+                  <h3>{media.title}</h3>
+                  <p>{media.year} · {media.runtimeLabel}</p>
+                  <QualityPill label={resultItem.relevance} />
+                </div>
+                <div className="title-copy-block">
+                  <div className="inline-quality-heading">
+                    <strong>Title Blurb</strong>
+                    {customDescriptionsAssessment ? (
+                      <div>
+                        <ApprovalBadge label={customDescriptionsAssessment.label} />
+                        <QualityPill label={customDescriptionsAssessment.label} />
+                      </div>
+                    ) : null}
+                  </div>
+                  <p className="title-custom-description">
+                    {selectedNode.customDescriptions[resultItem.mediaId]}
+                  </p>
+                </div>
+              </article>
             );
           })}
         </div>
-      </aside>
+      </section>
 
-      <section className="panel detail-main">
+      <aside className="panel detail-column judgment-column">
         <div className="section-heading">
           <div>
-            <h2>Automated Run Detail</h2>
-            <p>{selectedNode.path.join(' / ')}</p>
+            <h2>AI Judgment</h2>
+            <p>{selectedNode.metadataSource} metadata · {run.querySetVersion}</p>
           </div>
           <button className="primary-action" type="button" onClick={onOpenReview}>
             <UserCheck aria-hidden="true" />
-            Review Node
+            Review
           </button>
         </div>
 
-        <section className="blurb-block priority-blurb">
+        <section className="blurb-block judgment-blurb">
           <div className="content-heading">
             <div>
               <h3>AI Blurb</h3>
@@ -848,155 +1350,99 @@ function AutomatedDetailView({
           <p>{selectedNode.blurb}</p>
         </section>
 
-        <div className="node-switcher">
-          {seedNodes.map((node) => (
-            <button
-              key={node.id}
-              type="button"
-              className={node.id === selectedNode.id ? 'selected' : ''}
-              onClick={() => onSelectNode(node.id)}
-            >
-              <span>Depth {node.depth}</span>
-              <strong>{node.query}</strong>
-            </button>
-          ))}
-        </div>
-
-        <div className="response-layout">
-          <section className="content-section">
-            <div className="content-heading">
-              <div>
-                <h3>Search Results</h3>
-                <QualitySignal assessment={searchResultsAssessment} />
-              </div>
-              {searchResultsAssessment ? <QualityPill label={searchResultsAssessment.label} /> : null}
-            </div>
-            <div className="result-strip">
-              {selectedNode.resultSet.map((resultItem) => {
-                const media = mediaById[resultItem.mediaId];
-                if (!media) {
-                  return null;
-                }
-
-                return (
-                  <article className="title-tile" key={resultItem.mediaId}>
-                    <MediaPoster mediaId={resultItem.mediaId} />
-                    <div>
-                      <span className="rank">#{resultItem.rank}</span>
-                      <h3>{media.title}</h3>
-                      <p>{media.year} · {media.runtimeLabel}</p>
-                      <QualityPill label={resultItem.relevance} />
-                    </div>
-                    <div className="title-copy-block">
-                      <div className="inline-quality-heading">
-                        <strong>Title Blurb</strong>
-                        {customDescriptionsAssessment ? (
-                          <div>
-                            <ApprovalBadge label={customDescriptionsAssessment.label} />
-                            <QualityPill label={customDescriptionsAssessment.label} />
-                          </div>
-                        ) : null}
-                      </div>
-                      <p className="title-custom-description">
-                        {selectedNode.customDescriptions[resultItem.mediaId]}
-                      </p>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="content-section">
-            <h3>Correctness Gates</h3>
-            <div className="finding-list">
-              {selectedNode.stage1Findings.map((finding) => (
-                <div className={`finding ${statusClass(finding.outcome)}`} key={finding.id}>
-                  <OutcomeIcon outcome={finding.outcome} />
-                  <div>
-                    <strong>{finding.title}</strong>
-                    <p>{finding.message}</p>
-                    <small>{finding.evidence}</small>
-                  </div>
+        <section className="judgment-section">
+          <div className="content-heading">
+            <h3>Quality Scores</h3>
+          </div>
+          <div className="quality-list">
+            {selectedNode.qualityAssessments.map((assessment) => (
+              <div className="quality-row" key={assessment.area}>
+                <div>
+                  <strong>{assessment.area}</strong>
+                  <p>{assessment.rationale}</p>
                 </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="content-section">
-            <div className="content-heading">
-              <div>
-                <h3>Follow-Up Suggestions</h3>
-                <QualitySignal assessment={followUpAssessment} />
+                <QualityPill label={assessment.label} />
               </div>
-              {followUpAssessment ? <QualityPill label={followUpAssessment.label} /> : null}
-            </div>
-            <div className="follow-up-list">
-              {selectedNode.followUps.map((followUp) => (
-                <button
-                  key={followUp.id}
-                  type="button"
-                  onClick={() => followUp.targetNodeId && onSelectNode(followUp.targetNodeId)}
-                  disabled={!followUp.targetNodeId}
-                >
-                  <MessageSquareText aria-hidden="true" />
-                  {followUp.text}
-                </button>
-              ))}
-            </div>
-          </section>
-        </div>
-      </section>
+            ))}
+          </div>
+        </section>
 
-      <aside className="panel side-panel">
-        <div className="section-heading compact">
-          <h2>Run Rollup</h2>
-          <StatusPill label={rollup.status} />
-        </div>
-        <div className="compact-metrics">
-          <Metric label="Nodes" value={String(rollup.nodeCount)} icon={GitBranch} tone="info" />
-          <Metric
-            label="Stage 1 Fail Rate"
-            value={`${rollup.stage1FailureRate}%`}
-            icon={CircleAlert}
-            tone={rollup.stage1FailureRate ? 'warning' : 'positive'}
-          />
-          <Metric
-            label="Stage 2 Average"
-            value={scoreText(rollup.stage2Average)}
-            icon={BarChart3}
-            tone="positive"
-          />
-        </div>
-        <div className="metadata-box">
-          <h3>Metadata Source</h3>
-          <p>TMDB title, media type, cast, crew, dates, rating, and poster paths.</p>
-        </div>
-        <div className="metadata-box">
-          <h3>Follow-Up Patterns</h3>
-          {rollup.followUpPatterns.map((pattern) => (
-            <div className="reason-row" key={pattern.label}>
-              <span>{pattern.label}</span>
-              <strong>{pattern.count}</strong>
+        <section className="judgment-section">
+          <div className="content-heading">
+            <h3>Correctness Gates</h3>
+          </div>
+          <div className="finding-list">
+            {selectedNode.stage1Findings.map((finding) => (
+              <div className={`finding ${statusClass(finding.outcome)}`} key={finding.id}>
+                <OutcomeIcon outcome={finding.outcome} />
+                <div>
+                  <strong>{finding.title}</strong>
+                  <p>{finding.message}</p>
+                  <small>{finding.evidence}</small>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="judgment-section">
+          <div className="content-heading">
+            <div>
+              <h3>Follow-Up Suggestions</h3>
+              <QualitySignal assessment={followUpAssessment} />
             </div>
-          ))}
-        </div>
+            {followUpAssessment ? <QualityPill label={followUpAssessment.label} /> : null}
+          </div>
+          <div className="follow-up-list">
+            {selectedNode.followUps.map((followUp) => (
+              <button
+                key={followUp.id}
+                type="button"
+                onClick={() => followUp.targetNodeId && onSelectNode(followUp.targetNodeId)}
+                disabled={!followUp.targetNodeId}
+              >
+                <MessageSquareText aria-hidden="true" />
+                {followUp.text}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="metadata-box run-context">
+          <div className="section-heading compact">
+            <h3>Run Context</h3>
+            <StatusPill label={rollup.status} />
+          </div>
+          <div className="context-metrics">
+            <Metric label="Nodes" value={String(rollup.nodeCount)} icon={GitBranch} tone="info" />
+            <Metric
+              label="Stage 1"
+              value={`${rollup.stage1FailureRate}%`}
+              icon={CircleAlert}
+              tone={rollup.stage1FailureRate ? 'warning' : 'positive'}
+            />
+          </div>
+        </section>
       </aside>
     </div>
   );
 }
 
 function HumanReviewView({
+  run,
   node,
   gateReviews,
   qualityReviews,
+  onSelectSeed,
   onSelectNode,
   onUpdateGateReview,
   onUpdateQualityReview,
 }: {
+  run: EvaluationRun;
   node: ConversationNode;
   gateReviews: GateReviewMap;
   qualityReviews: QualityReviewMap;
+  onSelectSeed: (seedId: string) => void;
   onSelectNode: (nodeId: string) => void;
   onUpdateGateReview: (
     nodeId: string,
@@ -1009,10 +1455,7 @@ function HumanReviewView({
     patch: Partial<QualityReviewMap[string]>,
   ) => void;
 }) {
-  const siblingNodes = getSeedNodes(
-    evaluationRuns.find((run) => run.id === node.runId) ?? evaluationRuns[0],
-    node.seedId,
-  );
+  const siblingNodes = getSeedNodes(run, node.seedId);
 
   return (
     <div className="view-grid review-grid">
@@ -1025,19 +1468,17 @@ function HumanReviewView({
           <StatusPill label="Needs Review" />
         </div>
 
-        <div className="node-switcher">
-          {siblingNodes.map((sibling) => (
-            <button
-              key={sibling.id}
-              type="button"
-              className={sibling.id === node.id ? 'selected' : ''}
-              onClick={() => onSelectNode(sibling.id)}
-            >
-              <span>Depth {sibling.depth}</span>
-              <strong>{sibling.query}</strong>
-            </button>
-          ))}
-        </div>
+        <ExecutedQueryNavigator
+          run={run}
+          selectedSeedId={node.seedId}
+          onSelectSeed={onSelectSeed}
+        />
+
+        <ConversationTreeNavigator
+          nodes={siblingNodes}
+          selectedNode={node}
+          onSelectNode={onSelectNode}
+        />
 
         <div className="review-results">
           {node.resultSet.map((resultItem) => {
