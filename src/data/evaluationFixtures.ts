@@ -102,7 +102,8 @@ const followUp = (
 ): FollowUpSuggestion => ({ id, text, type, patternKey, targetNodeId });
 
 const targetResultCount = 7;
-const populatedPathDepth = 5;
+const populatedPathDepth = 4;
+const targetFollowUpCount = 3;
 
 type ResultBackfill = {
   mediaId: string;
@@ -914,13 +915,14 @@ function withSevenResults(node: ConversationNode): ConversationNode {
 }
 
 const generatedFollowUpTextByDepth = [
-  '',
-  'Narrow this direction',
-  'Add one more constraint',
-  'Compare a nearby option',
-  'Refine the recommendation set',
-  'Final depth check',
+  [],
+  ['Narrow this direction', 'Try a different angle', 'Keep exploring'],
+  ['Add one more constraint', 'Make the tone clearer', 'Broaden the adjacent picks'],
+  ['Compare a nearby option', 'Tighten the recommendation set', 'Look for a fresher match'],
+  ['Refine the recommendation set', 'Prioritize the strongest matches', 'Explore one more branch'],
 ];
+
+const generatedFollowUpTypes: FollowUpSuggestion['type'][] = ['refine', 'filter', 'compare'];
 
 function generatedFixtureId(value: string) {
   return value
@@ -935,16 +937,27 @@ function generatedNodeId(parent: ConversationNode, followUpSuggestion: FollowUpS
   return `node-generated-${generatedFixtureId(parent.id)}-${generatedFixtureId(followUpSuggestion.id)}`;
 }
 
-function generatedFollowUpFor(parent: ConversationNode): FollowUpSuggestion {
+function generatedFollowUpFor(parent: ConversationNode, slot: number): FollowUpSuggestion {
   const nextDepth = parent.depth + 1;
-  const text = generatedFollowUpTextByDepth[nextDepth] ?? 'Continue this path';
+  const textOptions = generatedFollowUpTextByDepth[nextDepth] ?? ['Continue this path'];
+  const text = textOptions[slot % textOptions.length];
 
   return followUp(
-    `fu-generated-${generatedFixtureId(parent.id)}-depth-${nextDepth}`,
+    `fu-generated-${generatedFixtureId(parent.id)}-depth-${nextDepth}-${slot + 1}`,
     text,
-    nextDepth % 2 === 0 ? 'refine' : 'broaden',
-    `fixture-depth-${nextDepth}`,
+    generatedFollowUpTypes[slot % generatedFollowUpTypes.length],
+    `fixture-depth-${nextDepth}-${slot + 1}`,
   );
+}
+
+function followUpsWithGeneratedChoices(node: ConversationNode) {
+  const followUps = node.followUps.map((followUpSuggestion) => ({ ...followUpSuggestion }));
+
+  for (let slot = 0; followUps.length < targetFollowUpCount; slot += 1) {
+    followUps.push(generatedFollowUpFor(node, slot));
+  }
+
+  return followUps;
 }
 
 function generatedResultsFor(parent: ConversationNode, depth: number) {
@@ -985,7 +998,14 @@ function makeGeneratedFollowUpNode(
     resultSet: generatedResultsFor(parent, depth),
     blurb: `This branch keeps the original search intent while applying "${followUpSuggestion.text}" as the next conversational turn.`,
     customDescriptions: generatedDescriptionsFor(parent, depth),
-    followUps: hasMoreDepth ? [generatedFollowUpFor({ ...parent, id: nodeId, depth })] : [],
+    followUps: hasMoreDepth
+      ? followUpsWithGeneratedChoices({
+          ...parent,
+          id: nodeId,
+          depth,
+          followUps: [],
+        })
+      : [],
     stage1Findings: [
       passFinding(
         `gate-${generatedFixtureId(nodeId)}-response-complete`,
@@ -1025,7 +1045,7 @@ function withPopulatedFollowUpPaths(nodes: ConversationNode[]) {
       continue;
     }
 
-    const followUps = node.followUps.length ? node.followUps : [generatedFollowUpFor(node)];
+    const followUps = followUpsWithGeneratedChoices(node);
 
     node.followUps = followUps.map((followUpSuggestion) => {
       if (followUpSuggestion.targetNodeId && nodesById.has(followUpSuggestion.targetNodeId)) {

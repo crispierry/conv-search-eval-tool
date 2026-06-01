@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 import {
   BarChart3,
   CheckCircle2,
@@ -11,14 +12,18 @@ import {
   Film,
   GitBranch,
   ListChecks,
+  Maximize2,
   MessageSquareText,
   PlayCircle,
+  RotateCcw,
   Search,
   Star,
   TrendingUp,
   Tv,
   UserCheck,
   XCircle,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 import {
   evaluationRuns,
@@ -80,17 +85,33 @@ const shortDateFormatter = new Intl.DateTimeFormat('en-US', {
 
 const reviewStorageKey = 'conv-search-eval-tool.review-state.v1';
 const maxConversationDepth = 4;
+const conversationMapColumnWidth = 360;
+const conversationMapRowHeight = 230;
+const conversationMapNodeWidth = 250;
+const conversationMapNodeHeight = 170;
+const conversationMapHeaderOffset = 64;
 
 type TreeBranchState = 'available' | 'dead-end' | 'not-fixture-backed';
 
-interface ConversationTreeItem {
+interface ConversationMapItem {
   id: string;
   depth: number;
   label: string;
   path: string[];
   state: TreeBranchState;
+  status: string;
+  childCount: number;
+  x: number;
+  y: number;
   nodeId?: string;
   parentNodeId?: string;
+  qualityLabel?: QualityLabel;
+}
+
+interface ConversationMapEdge {
+  id: string;
+  fromId: string;
+  toId: string;
 }
 
 function readStoredReviewState() {
@@ -251,127 +272,184 @@ function getAncestorNodeIds(node: ConversationNode, nodesById: Map<string, Conve
   return ancestorIds;
 }
 
-function getSelectedPathNodes(node: ConversationNode, nodesById: Map<string, ConversationNode>) {
-  const pathNodes: ConversationNode[] = [];
-  let current: ConversationNode | undefined = node;
+function getAncestorNodeAtDepth(
+  node: ConversationNode | undefined,
+  depth: number,
+  nodesById: Map<string, ConversationNode>,
+) {
+  let current = node;
 
-  while (current) {
-    pathNodes.unshift(current);
+  while (current && current.depth > depth) {
     current = current.parentId ? nodesById.get(current.parentId) : undefined;
   }
 
-  return pathNodes;
+  return current?.depth === depth ? current : undefined;
 }
 
-function conversationTreeItemForNode(
-  node: ConversationNode,
-  fallbackLabel = node.query,
-): ConversationTreeItem {
-  return {
-    id: `node-${node.id}`,
-    depth: node.depth,
-    label: fallbackLabel,
-    path: node.path,
-    state: 'available',
-    nodeId: node.id,
-    parentNodeId: node.parentId,
-  };
-}
+function buildConversationMap(nodes: ConversationNode[], selectedNode: ConversationNode) {
+  const nodesById = new Map(nodes.map((node) => [node.id, node]));
+  const depthGroups = Array.from({ length: maxConversationDepth + 1 }, () => [] as ConversationMapItem[]);
+  const itemById = new Map<string, ConversationMapItem>();
+  const edges: ConversationMapEdge[] = [];
+  const edgeIds = new Set<string>();
+  const focusPathNodeIds = new Set<string>();
+  const selectedNodeForFocus = nodesById.get(selectedNode.id);
 
-function getFollowUpTreeItems(
-  parent: ConversationNode,
-  nodesById: Map<string, ConversationNode>,
-) {
-  const nextDepth = parent.depth + 1;
+  function appendItem(item: ConversationMapItem) {
+    const existingItem = itemById.get(item.id);
 
-  if (nextDepth > maxConversationDepth) {
-    return [];
-  }
-
-  if (parent.followUps.length === 0) {
-    return [
-      {
-        id: `dead-${parent.id}-${nextDepth}`,
-        depth: nextDepth,
-        label: 'No follow-up suggestions returned',
-        path: [...parent.path, 'No follow-up suggestions returned'],
-        state: 'dead-end' as const,
-        parentNodeId: parent.id,
-      },
-    ];
-  }
-
-  return parent.followUps.map((followUp) => {
-    const targetNode = followUp.targetNodeId ? nodesById.get(followUp.targetNodeId) : undefined;
-
-    if (targetNode) {
-      return {
-        ...conversationTreeItemForNode(targetNode, followUp.text),
-        id: `followup-${parent.id}-${followUp.id}`,
-        parentNodeId: parent.id,
-      };
+    if (existingItem) {
+      return existingItem;
     }
 
-    return {
-      id: `stub-${parent.id}-${followUp.id}`,
-      depth: nextDepth,
-      label: followUp.text,
-      path: [...parent.path, followUp.text],
-      state: 'not-fixture-backed' as const,
-      parentNodeId: parent.id,
-    };
-  });
-}
-
-function getFirstAvailableChild(
-  parent: ConversationNode | undefined,
-  nodesById: Map<string, ConversationNode>,
-) {
-  if (!parent) {
-    return undefined;
+    itemById.set(item.id, item);
+    depthGroups[item.depth].push(item);
+    return item;
   }
 
-  const firstBackedFollowUp = parent.followUps.find(
-    (followUp) => followUp.targetNodeId && nodesById.has(followUp.targetNodeId),
-  );
+  function addEdge(fromId: string, toId: string) {
+    const edgeId = `${fromId}-${toId}`;
 
-  return firstBackedFollowUp?.targetNodeId
-    ? nodesById.get(firstBackedFollowUp.targetNodeId)
-    : undefined;
-}
+    if (edgeIds.has(edgeId)) {
+      return;
+    }
 
-function buildActiveConversationTreeItems(
-  nodes: ConversationNode[],
-  selectedNode: ConversationNode,
-) {
-  const nodesById = new Map(nodes.map((node) => [node.id, node]));
-  const selectedPathNodes = getSelectedPathNodes(selectedNode, nodesById);
-  const rootNode = selectedPathNodes[0] ?? nodes.find((node) => node.depth === 0);
-  const activePathNodes: Array<ConversationNode | undefined> = Array.from({
-    length: maxConversationDepth + 1,
-  });
-
-  if (rootNode) {
-    activePathNodes[0] = rootNode;
+    edgeIds.add(edgeId);
+    edges.push({ id: edgeId, fromId, toId });
   }
+
+  function addAvailableNode(node: ConversationNode) {
+    return appendItem({
+      id: node.id,
+      depth: node.depth,
+      label: node.query,
+      path: node.path,
+      state: 'available',
+      status: queryStatusLabel(node),
+      childCount: node.followUps.length,
+      x: 0,
+      y: 0,
+      nodeId: node.id,
+      parentNodeId: node.parentId,
+      qualityLabel: getQualityAssessment(node, 'Search Results')?.label,
+    });
+  }
+
+  function addChildItems(parentNode: ConversationNode) {
+    if (parentNode.depth >= maxConversationDepth) {
+      return [] as ConversationMapItem[];
+    }
+
+    const parentItem = addAvailableNode(parentNode);
+    const childDepth = parentNode.depth + 1;
+
+    if (parentNode.followUps.length === 0) {
+      const deadId = `dead-${parentNode.id}-${childDepth}`;
+      const deadItem = appendItem({
+        id: deadId,
+        depth: childDepth,
+        label: 'No follow-up suggestions returned',
+        path: [...parentNode.path, 'No follow-up suggestions returned'],
+        state: 'dead-end',
+        status: 'Dead end',
+        childCount: 0,
+        x: 0,
+        y: 0,
+        parentNodeId: parentNode.id,
+      });
+
+      addEdge(parentItem.id, deadItem.id);
+      return [deadItem];
+    }
+
+    return parentNode.followUps.map((followUp) => {
+      const targetNode = followUp.targetNodeId ? nodesById.get(followUp.targetNodeId) : undefined;
+      const childItem =
+        targetNode && targetNode.depth <= maxConversationDepth
+          ? addAvailableNode(targetNode)
+          : appendItem({
+              id: `stub-${parentNode.id}-${followUp.id}`,
+              depth: childDepth,
+              label: followUp.text,
+              path: [...parentNode.path, followUp.text],
+              state: 'not-fixture-backed',
+              status: 'Not evaluated',
+              childCount: 0,
+              x: 0,
+              y: 0,
+              parentNodeId: parentNode.id,
+            });
+
+      addEdge(parentItem.id, childItem.id);
+      return childItem;
+    });
+  }
+
+  function firstAvailableNodeAtDepth(depth: number) {
+    const item = depthGroups[depth].find((candidate) => candidate.state === 'available' && candidate.nodeId);
+
+    return item?.nodeId ? nodesById.get(item.nodeId) : undefined;
+  }
+
+  function focusedNodeAtDepth(depth: number) {
+    const selectedAncestor = getAncestorNodeAtDepth(selectedNodeForFocus, depth, nodesById);
+
+    if (selectedAncestor && itemById.has(selectedAncestor.id)) {
+      return selectedAncestor;
+    }
+
+    return firstAvailableNodeAtDepth(depth);
+  }
+
+  const rootNodes = nodes.filter((node) => node.depth === 0 && node.depth <= maxConversationDepth);
+  rootNodes.forEach((node) => addAvailableNode(node));
+  const focusedRootNode = focusedNodeAtDepth(0);
+
+  if (focusedRootNode) {
+    focusPathNodeIds.add(focusedRootNode.id);
+  }
+
+  rootNodes.forEach((node) => addChildItems(node));
 
   for (let depth = 1; depth <= maxConversationDepth; depth += 1) {
-    activePathNodes[depth] =
-      selectedPathNodes[depth] ?? getFirstAvailableChild(activePathNodes[depth - 1], nodesById);
-  }
+    const focusedNode = focusedNodeAtDepth(depth);
 
-  const itemsByDepth = activePathNodes.map((node, depth) => {
-    if (depth === 0) {
-      return node ? [conversationTreeItemForNode(node)] : [];
+    if (!focusedNode) {
+      break;
     }
 
-    const parent = activePathNodes[depth - 1];
-    return parent ? getFollowUpTreeItems(parent, nodesById) : [];
+    focusPathNodeIds.add(focusedNode.id);
+
+    if (depth < maxConversationDepth) {
+      addChildItems(focusedNode);
+    }
+  }
+
+  depthGroups.forEach((items, depth) => {
+    items.forEach((item, index) => {
+      item.x = depth * conversationMapColumnWidth;
+      item.y = conversationMapHeaderOffset + index * conversationMapRowHeight;
+    });
   });
 
+  const maxVisibleRows = Math.max(...depthGroups.map((items) => items.length), 1);
+  const mapWidth = maxConversationDepth * conversationMapColumnWidth + conversationMapNodeWidth;
+  const mapHeight =
+    conversationMapHeaderOffset +
+    (maxVisibleRows - 1) * conversationMapRowHeight +
+    conversationMapNodeHeight +
+    28;
+
   return {
-    activePathIds: new Set(activePathNodes.map((node) => node?.id).filter(Boolean)),
-    itemsByDepth,
+    columnWidth: conversationMapColumnWidth,
+    depthGroups,
+    edges,
+    focusPathNodeIds,
+    itemById,
+    mapHeight,
+    mapWidth,
+    nodeHeight: conversationMapNodeHeight,
+    nodeWidth: conversationMapNodeWidth,
     nodesById,
   };
 }
@@ -382,6 +460,22 @@ function StatusPill({ label }: { label: string }) {
 
 function QualityPill({ label }: { label: QualityLabel }) {
   return <span className={`pill ${qualityClass(label)}`}>{label}</span>;
+}
+
+function ratingLabel(label: QualityLabel) {
+  if (label === 'Needs Work') {
+    return 'Fair';
+  }
+
+  if (label === 'Fail') {
+    return 'Bad';
+  }
+
+  return label;
+}
+
+function RatingPill({ label }: { label: QualityLabel }) {
+  return <span className={`pill ${qualityClass(label)}`}>{ratingLabel(label)}</span>;
 }
 
 function isApprovedQuality(label: QualityLabel) {
@@ -565,98 +659,249 @@ function ConversationTreeNavigator({
   selectedNode: ConversationNode;
   onSelectNode: (nodeId: string) => void;
 }) {
-  const {
-    activePathIds,
-    itemsByDepth,
-    nodesById,
-  } = useMemo(
-    () => buildActiveConversationTreeItems(nodes, selectedNode),
-    [nodes, selectedNode],
-  );
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const panStartRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
+  const [zoom, setZoom] = useState(0.86);
+  const [pan, setPan] = useState({ x: 24, y: 24 });
+  const map = useMemo(() => buildConversationMap(nodes, selectedNode), [nodes, selectedNode]);
   const selectedPathIds = useMemo(
-    () => getAncestorNodeIds(selectedNode, nodesById),
-    [nodesById, selectedNode],
+    () => getAncestorNodeIds(selectedNode, map.nodesById),
+    [map.nodesById, selectedNode],
   );
+  const selectedItem = selectedNode.id ? map.itemById.get(selectedNode.id) : undefined;
+
+  function updateZoom(nextZoom: number) {
+    setZoom(Math.max(0.45, Math.min(1.45, nextZoom)));
+  }
+
+  function fitMapToView() {
+    const viewport = viewportRef.current;
+
+    if (!viewport) {
+      return;
+    }
+
+    const nextZoom = Math.min(
+      1,
+      (viewport.clientWidth - 32) / Math.max(map.mapWidth, 1),
+      (viewport.clientHeight - 32) / Math.max(map.mapHeight, 1),
+    );
+
+    updateZoom(nextZoom);
+    setPan({ x: 16, y: 16 });
+  }
+
+  function resetMapView() {
+    setZoom(0.86);
+    setPan({ x: 24, y: 24 });
+  }
+
+  function centerSelectedNode() {
+    const viewport = viewportRef.current;
+
+    if (!viewport || !selectedItem) {
+      return;
+    }
+
+    setPan({
+      x: viewport.clientWidth / 2 - (selectedItem.x + map.nodeWidth / 2) * zoom,
+      y: viewport.clientHeight / 2 - (selectedItem.y + map.nodeHeight / 2) * zoom,
+    });
+  }
+
+  function handleMapMouseDown(event: ReactMouseEvent<HTMLDivElement>) {
+    if ((event.target as HTMLElement).closest('.map-node, .map-control-button')) {
+      return;
+    }
+
+    panStartRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      panX: pan.x,
+      panY: pan.y,
+    };
+  }
+
+  function handleMapMouseMove(event: ReactMouseEvent<HTMLDivElement>) {
+    const start = panStartRef.current;
+
+    if (!start) {
+      return;
+    }
+
+    setPan({
+      x: start.panX + event.clientX - start.x,
+      y: start.panY + event.clientY - start.y,
+    });
+  }
+
+  function endMapPan() {
+    panStartRef.current = null;
+  }
 
   return (
-    <section className="conversation-tree">
-      <div className="section-heading compact">
-        <h3>Conversation Tree</h3>
-        <span>Depth 0-{maxConversationDepth}</span>
+    <section className="conversation-map">
+      <div className="section-heading compact map-heading">
+        <div>
+          <h3>Conversation Map</h3>
+          <span>Depth 0-{maxConversationDepth}</span>
+        </div>
+        <div className="map-controls" aria-label="Conversation map controls">
+          <button
+            type="button"
+            className="map-control-button"
+            onClick={() => updateZoom(zoom + 0.12)}
+            title="Zoom in"
+          >
+            <ZoomIn aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="map-control-button"
+            onClick={() => updateZoom(zoom - 0.12)}
+            title="Zoom out"
+          >
+            <ZoomOut aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="map-control-button"
+            onClick={fitMapToView}
+            title="Fit to view"
+          >
+            <Maximize2 aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="map-control-button"
+            onClick={centerSelectedNode}
+            title="Center selected node"
+          >
+            <Search aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="map-control-button"
+            onClick={resetMapView}
+            title="Reset zoom"
+          >
+            <RotateCcw aria-hidden="true" />
+          </button>
+        </div>
       </div>
-      <div className="tree-depth-grid">
-        {itemsByDepth.map((items, depth) => (
-          <div className="tree-depth" key={depth}>
-            <div className="tree-depth-heading">
-              <strong>Depth {depth}</strong>
-              <span>{conversationTurnLabel(depth)}</span>
-            </div>
-            <div className="tree-item-list">
-              {items.length ? (
-                items.map((item) => {
-                  const isAvailable = item.state === 'available' && item.nodeId;
-                  const isCurrent = item.nodeId === selectedNode.id;
-                  const isInSelectedPath = item.nodeId ? selectedPathIds.has(item.nodeId) : false;
-                  const isFromCurrentNode = item.parentNodeId === selectedNode.id;
-                  const isExpanded = item.nodeId ? activePathIds.has(item.nodeId) : false;
-                  const Icon = branchStateIcon(item.state);
-                  const className = [
-                    'tree-card',
-                    item.state,
-                    isCurrent ? 'current' : '',
-                    isInSelectedPath && !isCurrent ? 'in-path' : '',
-                    isExpanded && !isInSelectedPath ? 'preview-path' : '',
-                    isFromCurrentNode ? 'from-current' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ');
-                  const content = (
-                    <>
-                      <span className="tree-state">
-                        <Icon aria-hidden="true" />
-                        {isCurrent
-                          ? 'Current'
-                          : isInSelectedPath
-                            ? 'Selected Path'
-                            : isExpanded
-                              ? 'Expanded'
-                              : branchStateLabel(item.state)}
-                      </span>
-                      <strong>{item.label}</strong>
-                      <small>{item.path.join(' / ')}</small>
-                    </>
-                  );
 
-                  return isAvailable ? (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className={className}
-                      onClick={() => item.nodeId && onSelectNode(item.nodeId)}
-                      aria-current={isCurrent ? 'true' : undefined}
-                    >
-                      {content}
-                    </button>
-                  ) : (
-                    <div className={className} key={item.id}>
-                      {content}
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="tree-card empty-depth">
-                  <span className="tree-state">
-                    <CircleAlert aria-hidden="true" />
-                    No saved response
-                  </span>
-                  <strong>No branch at this depth</strong>
-                  <small>Depth {depth} has no saved node in this run.</small>
-                </div>
-              )}
-            </div>
+      <div
+        className="map-viewport"
+        ref={viewportRef}
+        onMouseDown={handleMapMouseDown}
+        onMouseMove={handleMapMouseMove}
+        onMouseLeave={endMapPan}
+        onMouseUp={endMapPan}
+      >
+        <div
+          className="map-canvas"
+          style={{
+            height: map.mapHeight,
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            width: map.mapWidth,
+          }}
+        >
+          <svg
+            className="map-edges"
+            height={map.mapHeight}
+            viewBox={`0 0 ${map.mapWidth} ${map.mapHeight}`}
+            width={map.mapWidth}
+          >
+            {map.edges.map((edge) => {
+              const from = map.itemById.get(edge.fromId);
+              const to = map.itemById.get(edge.toId);
+
+              if (!from || !to) {
+                return null;
+              }
+
+              const x1 = from.x + map.nodeWidth;
+              const y1 = from.y + map.nodeHeight / 2;
+              const x2 = to.x;
+              const y2 = to.y + map.nodeHeight / 2;
+              const midX = x1 + Math.max(28, (x2 - x1) / 2);
+
+              return (
+                <path
+                  d={`M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`}
+                  key={edge.id}
+                />
+              );
+            })}
+          </svg>
+
+          <div className="map-depth-headings">
+            {map.depthGroups.map((items, depth) => (
+              <div className="map-depth-heading" key={depth} style={{ left: depth * map.columnWidth }}>
+                <strong>Depth {depth}</strong>
+                <span>{conversationTurnLabel(depth)}</span>
+                <small>{items.length} nodes</small>
+              </div>
+            ))}
           </div>
-        ))}
+
+          {[...map.itemById.values()].map((item) => {
+            const isAvailable = item.state === 'available' && item.nodeId;
+            const isCurrent = item.nodeId === selectedNode.id;
+            const isInSelectedPath = item.nodeId ? selectedPathIds.has(item.nodeId) : false;
+            const isInFocusedBranch = item.nodeId ? map.focusPathNodeIds.has(item.nodeId) : false;
+            const Icon = branchStateIcon(item.state);
+            const className = [
+              'map-node',
+              item.state,
+              isCurrent ? 'current' : '',
+              isInSelectedPath && !isCurrent ? 'in-path' : '',
+              isInFocusedBranch && !isCurrent && !isInSelectedPath ? 'focused-branch' : '',
+            ]
+              .filter(Boolean)
+              .join(' ');
+            const content = (
+              <>
+                <span className="tree-state">
+                  <Icon aria-hidden="true" />
+                  {isCurrent
+                    ? 'Current'
+                    : isInSelectedPath
+                      ? 'Selected Path'
+                      : isInFocusedBranch
+                        ? 'Focused Branch'
+                        : branchStateLabel(item.state)}
+                </span>
+                <strong>{item.label}</strong>
+                <small>
+                  Depth {item.depth} · {item.status}
+                </small>
+                <div className="map-node-footer">
+                  {item.qualityLabel ? <QualityPill label={item.qualityLabel} /> : null}
+                  <span>{item.childCount ? `${item.childCount} follow-ups` : 'No follow-ups'}</span>
+                </div>
+              </>
+            );
+
+            return isAvailable ? (
+              <button
+                key={item.id}
+                type="button"
+                className={className}
+                onClick={() => item.nodeId && onSelectNode(item.nodeId)}
+                style={{ left: item.x, top: item.y }}
+              >
+                {content}
+              </button>
+            ) : (
+              <div className={className} key={item.id} style={{ left: item.x, top: item.y }}>
+                {content}
+              </div>
+            );
+          })}
+        </div>
       </div>
+
     </section>
   );
 }
@@ -887,38 +1132,40 @@ function App() {
 
   return (
     <div className="app-shell">
-      <header className="topbar">
-        <div className="brand">
-          <span className="brand-mark">
-            <Search aria-hidden="true" />
-          </span>
-          <div>
-            <h1>Conversational Search Evaluation</h1>
-            <p>{selectedRun.querySetName} · {selectedRun.querySetVersion}</p>
+      <div className="app-navigation">
+        <header className="topbar">
+          <div className="brand">
+            <span className="brand-mark">
+              <Search aria-hidden="true" />
+            </span>
+            <div>
+              <h1>Conversational Search Evaluation</h1>
+              <p>{selectedRun.querySetName} · {selectedRun.querySetVersion}</p>
+            </div>
           </div>
-        </div>
-        <div className="source-strip">
-          <Database aria-hidden="true" />
-          <span>{tmdbMode}</span>
-        </div>
-      </header>
+          <div className="source-strip">
+            <Database aria-hidden="true" />
+            <span>{tmdbMode}</span>
+          </div>
+        </header>
 
-      <nav className="tabs" aria-label="Main views">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              className={activeTab === tab.id ? 'active' : ''}
-              onClick={() => setActiveTab(tab.id)}
-              type="button"
-            >
-              <Icon aria-hidden="true" />
-              {tab.label}
-            </button>
-          );
-        })}
-      </nav>
+        <nav className="tabs" aria-label="Main views">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                className={activeTab === tab.id ? 'active' : ''}
+                onClick={() => setActiveTab(tab.id)}
+                type="button"
+              >
+                <Icon aria-hidden="true" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
 
       <main>
         {activeTab === 'runs' ? (
@@ -1296,25 +1543,39 @@ function AutomatedDetailView({
             return (
               <article className="title-tile" key={resultItem.mediaId}>
                 <MediaPoster mediaId={resultItem.mediaId} />
-                <div>
-                  <span className="rank">#{resultItem.rank}</span>
+                <div className="title-summary">
+                  <span className="rank">Position #{resultItem.rank}</span>
                   <h3>{media.title}</h3>
                   <p>{media.year} · {media.runtimeLabel}</p>
-                  <QualityPill label={resultItem.relevance} />
                 </div>
-                <div className="title-copy-block">
-                  <div className="inline-quality-heading">
-                    <strong>Title Blurb</strong>
+                <div className="result-judgment-list">
+                  <div className="result-judgment-card">
+                    <div>
+                      <span className="result-judgment-label">Result title + position</span>
+                      <strong>#{resultItem.rank} · {media.title}</strong>
+                    </div>
+                    <div className="result-judgment-actions">
+                      <span className="result-judgment-meta">Rating</span>
+                      <RatingPill label={resultItem.relevance} />
+                    </div>
+                  </div>
+
+                  <div className="result-judgment-card">
+                    <div>
+                      <span className="result-judgment-label">Title blurb</span>
+                      <p className="title-custom-description">
+                        {selectedNode.customDescriptions[resultItem.mediaId]}
+                      </p>
+                    </div>
                     {customDescriptionsAssessment ? (
-                      <div>
+                      <div className="result-judgment-actions">
+                        <span className="result-judgment-meta">Approval</span>
                         <ApprovalBadge label={customDescriptionsAssessment.label} />
-                        <QualityPill label={customDescriptionsAssessment.label} />
+                        <span className="result-judgment-meta">Rating</span>
+                        <RatingPill label={customDescriptionsAssessment.label} />
                       </div>
                     ) : null}
                   </div>
-                  <p className="title-custom-description">
-                    {selectedNode.customDescriptions[resultItem.mediaId]}
-                  </p>
                 </div>
               </article>
             );
