@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react';
+import type { FormEvent, MouseEvent as ReactMouseEvent, ReactNode } from 'react';
 import {
   BarChart3,
   BookOpen,
@@ -31,7 +31,7 @@ import {
   nodeById,
   seedById,
 } from './data/evaluationFixtures';
-import { mediaById } from './data/mediaCatalog';
+import { mediaById, mediaCatalog } from './data/mediaCatalog';
 import {
   copyReviewKey,
   gateReviewKey,
@@ -57,6 +57,7 @@ import type {
   CopyReviewMap,
   CopyReviewTarget,
   EvaluationRun,
+  ExpectedMediaType,
   GateDecision,
   GateReviewMap,
   QualityAssessment,
@@ -64,8 +65,10 @@ import type {
   QualityReviewMap,
   ReviewDecision,
   RunRollup,
+  SearchResult,
   SeedQuery,
   Stage1Outcome,
+  TmdbMedia,
 } from './types';
 
 const tabs = [
@@ -90,14 +93,43 @@ const shortDateFormatter = new Intl.DateTimeFormat('en-US', {
 });
 
 const reviewStorageKey = 'conv-search-eval-tool.review-state.v1';
+const adHocReviewQueryStorageKey = 'conv-search-eval-tool.custom-review-queries.v1';
+const customQueryDraftSeedId = 'custom-query-draft';
 const maxConversationDepth = 4;
 const conversationMapColumnWidth = 360;
 const conversationMapRowHeight = 230;
 const conversationMapNodeWidth = 250;
 const conversationMapNodeHeight = 170;
 const conversationMapHeaderOffset = 64;
+const adHocResultCount = 7;
 
 type TreeBranchState = 'available' | 'dead-end' | 'not-fixture-backed';
+
+interface CustomReviewQuery {
+  seed: SeedQuery;
+  node: ConversationNode;
+  addToGoldenSet: boolean;
+  createdAt: string;
+}
+
+interface StoredCustomReviewQuery {
+  seedId: string;
+  nodeId: string;
+  runId: string;
+  query: string;
+  addToGoldenSet: boolean;
+  createdAt: string;
+}
+
+interface CustomQueryControlProps {
+  draft: string;
+  addToGoldenSet: boolean;
+  isSelected: boolean;
+  onSelectDraft: () => void;
+  onDraftChange: (draft: string) => void;
+  onAddToGoldenSetChange: (checked: boolean) => void;
+  onSubmit: () => void;
+}
 
 interface ConversationMapItem {
   id: string;
@@ -253,6 +285,59 @@ function saveReviewState(
   }
 }
 
+function isStoredCustomReviewQuery(value: unknown): value is StoredCustomReviewQuery {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const record = value as Partial<StoredCustomReviewQuery>;
+  return (
+    typeof record.seedId === 'string' &&
+    typeof record.nodeId === 'string' &&
+    typeof record.runId === 'string' &&
+    typeof record.query === 'string' &&
+    typeof record.addToGoldenSet === 'boolean' &&
+    typeof record.createdAt === 'string'
+  );
+}
+
+function readStoredCustomReviewQueries() {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  try {
+    const stored = window.localStorage.getItem(adHocReviewQueryStorageKey);
+    const parsed = stored ? (JSON.parse(stored) as unknown) : [];
+    return Array.isArray(parsed) ? parsed.filter(isStoredCustomReviewQuery) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveStoredCustomReviewQueries(records: StoredCustomReviewQuery[]) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(adHocReviewQueryStorageKey, JSON.stringify(records));
+  } catch {
+    // Losing ad hoc query history should not interrupt the current review session.
+  }
+}
+
+function storedRecordForCustomQuery(query: CustomReviewQuery): StoredCustomReviewQuery {
+  return {
+    seedId: query.seed.id,
+    nodeId: query.node.id,
+    runId: query.node.runId,
+    query: query.seed.query,
+    addToGoldenSet: query.addToGoldenSet,
+    createdAt: query.createdAt,
+  };
+}
+
 function formatDate(date: string) {
   return dateTimeFormatter.format(new Date(date));
 }
@@ -309,8 +394,458 @@ function queryStatusLabel(node: ConversationNode) {
 }
 
 function seedStatusLabel(run: EvaluationRun, seedId: string) {
-  const nodes = getSeedNodes(run, seedId);
+  return seedStatusLabelFromNodes(getSeedNodes(run, seedId));
+}
 
+function formatMachineLabel(value: string) {
+  return value
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+const queryStopWords = new Set([
+  'about',
+  'after',
+  'also',
+  'and',
+  'are',
+  'best',
+  'can',
+  'for',
+  'from',
+  'give',
+  'have',
+  'like',
+  'more',
+  'movie',
+  'movies',
+  'please',
+  'recommend',
+  'series',
+  'show',
+  'shows',
+  'that',
+  'the',
+  'with',
+]);
+
+const genreKeywordSignals = [
+  {
+    terms: ['sci fi', 'scifi', 'science fiction'],
+    genre: 'science fiction',
+    label: 'science fiction',
+  },
+  { terms: ['funny', 'comedy', 'comedies'], genre: 'comedy', label: 'comedy' },
+  { terms: ['scary', 'horror'], genre: 'horror', label: 'horror' },
+  { terms: ['mystery', 'mysteries'], genre: 'mystery', label: 'mystery' },
+  { terms: ['crime', 'detective'], genre: 'crime', label: 'crime' },
+  { terms: ['romance', 'romantic'], genre: 'romance', label: 'romance' },
+  { terms: ['action'], genre: 'action', label: 'action' },
+  { terms: ['drama', 'dramatic'], genre: 'drama', label: 'drama' },
+];
+
+function normalizeSearchText(value: string) {
+  return value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function compactIdPart(value: string) {
+  return normalizeSearchText(value).replace(/\s+/g, '-').slice(0, 42) || 'query';
+}
+
+function tokenizeQuery(query: string) {
+  return Array.from(
+    new Set(
+      normalizeSearchText(query)
+        .split(' ')
+        .filter((token) => token.length > 2 && !queryStopWords.has(token)),
+    ),
+  );
+}
+
+function inferExpectedMediaType(query: string): ExpectedMediaType {
+  const normalized = normalizeSearchText(query);
+  const wantsSeries = /\b(series|show|shows|tv|season|seasons|episode|episodes)\b/.test(
+    normalized,
+  );
+  const wantsMovies = /\b(movie|movies|film|films|cinema)\b/.test(normalized);
+
+  if (wantsSeries && wantsMovies) {
+    return 'mixed';
+  }
+
+  if (wantsSeries) {
+    return 'series';
+  }
+
+  if (wantsMovies) {
+    return 'movie';
+  }
+
+  return 'unknown';
+}
+
+function inferQueryCategory(query: string): SeedQuery['category'] {
+  const normalized = normalizeSearchText(query);
+
+  if (/\b(actor|actress|cast|starring|with)\b/.test(normalized)) {
+    return 'cast';
+  }
+
+  if (/\b(director|directed|filmmaker|creator|created)\b/.test(normalized)) {
+    return 'director';
+  }
+
+  if (/\b(award|awards|oscar|oscars|emmy|emmys|winner|winning)\b/.test(normalized)) {
+    return 'award';
+  }
+
+  if (/\b(rated|rating|ratings|best|top)\b/.test(normalized)) {
+    return 'rating';
+  }
+
+  if (/\b(similar|like|vibe|vibes)\b/.test(normalized)) {
+    return 'similar_to';
+  }
+
+  if (tokenizeQuery(query).length > 5) {
+    return 'compound';
+  }
+
+  return 'exploratory';
+}
+
+function expectedMediaTypeLabel(expectedMediaType: ExpectedMediaType) {
+  if (expectedMediaType === 'movie') {
+    return 'movie';
+  }
+
+  if (expectedMediaType === 'series') {
+    return 'series';
+  }
+
+  if (expectedMediaType === 'mixed') {
+    return 'movie or series';
+  }
+
+  return 'any media type';
+}
+
+function mediaMatchesExpectedType(media: TmdbMedia, expectedMediaType: ExpectedMediaType) {
+  return (
+    expectedMediaType === 'unknown' ||
+    expectedMediaType === 'mixed' ||
+    media.mediaType === expectedMediaType
+  );
+}
+
+function scoreMediaForQuery(
+  media: TmdbMedia,
+  query: string,
+  tokens: string[],
+  expectedMediaType: ExpectedMediaType,
+) {
+  const normalizedQuery = normalizeSearchText(query);
+  const titleText = normalizeSearchText(media.title);
+  const titleTokens = new Set(titleText.split(' '));
+  const genreText = normalizeSearchText(media.genres.join(' '));
+  const peopleText = normalizeSearchText(
+    [...media.cast, media.director ?? '', media.creator ?? ''].join(' '),
+  );
+  const overviewText = normalizeSearchText(media.overview);
+  const signals = new Set<string>();
+  let score = 0;
+
+  if (mediaMatchesExpectedType(media, expectedMediaType) && expectedMediaType !== 'unknown') {
+    score += 2;
+    signals.add(media.mediaType);
+  }
+
+  if (normalizedQuery && titleText.includes(normalizedQuery)) {
+    score += 12;
+    signals.add('title');
+  }
+
+  tokens.forEach((token) => {
+    if (titleTokens.has(token) || titleText.includes(token)) {
+      score += 5;
+      signals.add('title');
+    }
+
+    if (genreText.includes(token)) {
+      score += 4;
+      signals.add('genre');
+    }
+
+    if (peopleText.includes(token)) {
+      score += 4;
+      signals.add('cast or creator');
+    }
+
+    if (overviewText.includes(token)) {
+      score += 2;
+      signals.add('overview');
+    }
+  });
+
+  genreKeywordSignals.forEach((signal) => {
+    const queryHasSignal = signal.terms.some((term) => normalizedQuery.includes(term));
+    const mediaHasGenre = media.genres.some((genre) => normalizeSearchText(genre) === signal.genre);
+
+    if (queryHasSignal && mediaHasGenre) {
+      score += 6;
+      signals.add(signal.label);
+    }
+  });
+
+  if (/\b(new|newer|recent|latest|modern)\b/.test(normalizedQuery) && media.year >= 2020) {
+    score += 3;
+    signals.add('recent');
+  }
+
+  if (/\b(classic|older|old)\b/.test(normalizedQuery) && media.year < 2005) {
+    score += 3;
+    signals.add('classic');
+  }
+
+  if (/\b(best|top|high rated|great)\b/.test(normalizedQuery)) {
+    score += media.voteAverage >= 7.5 ? 3 : 1;
+    signals.add('rating');
+  }
+
+  return {
+    media,
+    score: Math.round(score * 10) / 10,
+    signals: Array.from(signals),
+  };
+}
+
+function searchFixtureCatalog(query: string, expectedMediaType: ExpectedMediaType) {
+  const tokens = tokenizeQuery(query);
+  const scored = mediaCatalog
+    .map((media) => scoreMediaForQuery(media, query, tokens, expectedMediaType))
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        b.media.voteAverage - a.media.voteAverage ||
+        b.media.year - a.media.year,
+    );
+  const matches = scored.filter((item) => item.score > 0);
+  const selected = [...matches, ...scored.filter((item) => item.score === 0)].slice(
+    0,
+    adHocResultCount,
+  );
+
+  return {
+    hasMatches: matches.length > 0,
+    results: selected,
+    tokens,
+  };
+}
+
+function relevanceForFixtureResult(
+  result: ReturnType<typeof scoreMediaForQuery>,
+  rank: number,
+  hasMatches: boolean,
+): QualityLabel {
+  if (!hasMatches) {
+    return 'Needs Work';
+  }
+
+  if (result.score >= 14 || rank <= 2) {
+    return 'Excellent';
+  }
+
+  if (result.score >= 6 || rank <= 5) {
+    return 'Good';
+  }
+
+  return 'Needs Work';
+}
+
+function customDescriptionForResult(
+  result: ReturnType<typeof scoreMediaForQuery>,
+  query: string,
+) {
+  const signalText = result.signals.length
+    ? `Matches ${result.signals.slice(0, 2).join(' and ')} signals`
+    : 'Included as a high-rated fixture fallback';
+  const genreText = result.media.genres.slice(0, 2).join(' / ').toLowerCase();
+
+  return `${signalText} for "${query}", with ${genreText} context and a ${result.media.voteAverage.toFixed(1)} TMDB rating.`;
+}
+
+function metadataCheckForResult(
+  result: ReturnType<typeof scoreMediaForQuery>,
+  nodeId: string,
+  expectedMediaType: ExpectedMediaType,
+) {
+  const media = result.media;
+  const expected = expectedMediaTypeLabel(expectedMediaType);
+
+  return {
+    id: `${nodeId}-${media.id}-media-type`,
+    outcome: mediaMatchesExpectedType(media, expectedMediaType) ? 'Pass' : 'Warning',
+    field: 'media type and intent',
+    expected,
+    actual: `${media.mediaType}, ${media.genres.join(', ').toLowerCase()}`,
+    source: 'TMDB',
+    mediaId: media.id,
+  } satisfies SearchResult['metadataChecks'][number];
+}
+
+function makeCustomReviewQuery(record: StoredCustomReviewQuery): CustomReviewQuery {
+  const expectedMediaType = inferExpectedMediaType(record.query);
+  const category = inferQueryCategory(record.query);
+  const fixtureSearch = searchFixtureCatalog(record.query, expectedMediaType);
+  const resultSet = fixtureSearch.results.map((result, index): SearchResult => {
+    const rank = index + 1;
+
+    return {
+      mediaId: result.media.id,
+      rank,
+      relevance: relevanceForFixtureResult(result, rank, fixtureSearch.hasMatches),
+      metadataChecks: [metadataCheckForResult(result, record.nodeId, expectedMediaType)],
+    };
+  });
+  const customDescriptions = Object.fromEntries(
+    fixtureSearch.results.map((result) => [
+      result.media.id,
+      customDescriptionForResult(result, record.query),
+    ]),
+  );
+  const topTitle = fixtureSearch.results[0]?.media.title ?? 'the fixture catalog';
+  const searchQualityLabel: QualityLabel = fixtureSearch.hasMatches ? 'Good' : 'Needs Work';
+  const matchEvidence = fixtureSearch.hasMatches
+    ? `Matched ${fixtureSearch.results.filter((result) => result.score > 0).length} local TMDB fixtures.`
+    : 'No strong local fixture match was found, so high-rated catalog items were returned for review.';
+
+  return {
+    seed: {
+      id: record.seedId,
+      query: record.query,
+      category,
+      expectedMediaType,
+      expectedResultCount: { min: 3, max: adHocResultCount },
+      constraints: fixtureSearch.tokens,
+      goldenSet: [],
+      notes: record.addToGoldenSet
+        ? 'Reviewer-submitted query flagged for golden-set curation.'
+        : 'Reviewer-submitted ad hoc query.',
+    },
+    node: {
+      id: record.nodeId,
+      seedId: record.seedId,
+      runId: record.runId,
+      depth: 0,
+      query: record.query,
+      path: [record.query],
+      resultSet,
+      blurb: fixtureSearch.hasMatches
+        ? `For "${record.query}", the fixture search found TMDB-backed matches led by ${topTitle}.`
+        : `For "${record.query}", the fixture search returned fallback TMDB-backed titles for human review.`,
+      customDescriptions,
+      followUps: [
+        {
+          id: `${record.nodeId}-fu-narrow`,
+          text:
+            expectedMediaType === 'series'
+              ? 'Narrow to series only'
+              : expectedMediaType === 'movie'
+                ? 'Narrow to movies only'
+                : 'Narrow by media type',
+          type: 'filter',
+          patternKey: 'ad-hoc-media-type-filter',
+        },
+        {
+          id: `${record.nodeId}-fu-similar`,
+          text: 'Show more like the strongest match',
+          type: 'broaden',
+          patternKey: 'ad-hoc-similar-results',
+        },
+        {
+          id: `${record.nodeId}-fu-newer`,
+          text: 'Prioritize newer releases',
+          type: 'refine',
+          patternKey: 'ad-hoc-recency-refine',
+        },
+      ],
+      stage1Findings: [
+        {
+          id: `${record.nodeId}-gate-response-complete`,
+          outcome: 'Pass',
+          title: 'Response completeness',
+          scope: 'Node',
+          message: 'The ad hoc query returned titles, copy, and metadata checks.',
+          evidence: `${resultSet.length} titles returned from the local TMDB fixture catalog.`,
+          source: 'Fixture',
+        },
+        {
+          id: `${record.nodeId}-gate-fixture-match`,
+          outcome: fixtureSearch.hasMatches ? 'Pass' : 'Warning',
+          title: fixtureSearch.hasMatches ? 'Fixture catalog match' : 'Fixture catalog fallback',
+          scope: 'Node',
+          message: 'The ad hoc query was matched against the available local catalog.',
+          evidence: matchEvidence,
+          source: 'Fixture',
+        },
+      ],
+      qualityAssessments: [
+        {
+          area: 'Search Results',
+          label: searchQualityLabel,
+          rationale: fixtureSearch.hasMatches
+            ? 'The returned titles are ranked from local catalog matches for the submitted query.'
+            : 'The returned titles are fallback fixtures and need close human review.',
+        },
+        {
+          area: 'Blurb',
+          label: 'Good',
+          rationale: 'The blurb states that this is an ad hoc fixture-backed query.',
+        },
+        {
+          area: 'Custom Descriptions',
+          label: 'Good',
+          rationale: 'Descriptions explain why each fixture result was included.',
+        },
+        {
+          area: 'Follow-Up Suggestions',
+          label: 'Good',
+          rationale: 'Suggested follow-ups give reviewers plausible next-turn directions.',
+        },
+      ],
+      metadataSource: 'TMDB',
+      rawPayloadId: `ad-hoc-fixture-${compactIdPart(record.query)}`,
+    },
+    addToGoldenSet: record.addToGoldenSet,
+    createdAt: record.createdAt,
+  };
+}
+
+function createCustomReviewQuery(
+  query: string,
+  runId: string,
+  addToGoldenSet: boolean,
+) {
+  const now = new Date().toISOString();
+  const idPart = `${Date.now()}-${compactIdPart(query)}`;
+
+  return makeCustomReviewQuery({
+    seedId: `ad-hoc-seed-${idPart}`,
+    nodeId: `ad-hoc-node-${idPart}`,
+    runId,
+    query,
+    addToGoldenSet,
+    createdAt: now,
+  });
+}
+
+function seedStatusLabelFromNodes(nodes: ConversationNode[]) {
   if (nodes.length === 0) {
     return 'Needs Review';
   }
@@ -330,10 +865,22 @@ function seedStatusLabel(run: EvaluationRun, seedId: string) {
   return hasWarning ? 'Needs Review' : 'Passing';
 }
 
-function formatMachineLabel(value: string) {
-  return value
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (character) => character.toUpperCase());
+function getCustomQueryBySeedId(customReviewQueries: CustomReviewQuery[], seedId: string) {
+  return customReviewQueries.find((query) => query.seed.id === seedId);
+}
+
+function getSeedNodesForReview(
+  run: EvaluationRun,
+  seedId: string,
+  customReviewQueries: CustomReviewQuery[],
+) {
+  const customQuery = getCustomQueryBySeedId(customReviewQueries, seedId);
+
+  if (customQuery && customQuery.node.runId === run.id) {
+    return [customQuery.node];
+  }
+
+  return getSeedNodes(run, seedId);
 }
 
 function isMarkdownBoundary(line: string) {
@@ -780,10 +1327,14 @@ function QueryListColumn({
   run,
   selectedSeedId,
   onSelectSeed,
+  customReviewQueries = [],
+  customQueryControl,
 }: {
   run: EvaluationRun;
   selectedSeedId: string;
   onSelectSeed: (seedId: string) => void;
+  customReviewQueries?: CustomReviewQuery[];
+  customQueryControl?: CustomQueryControlProps;
 }) {
   const queryItems = useMemo(
     () =>
@@ -801,14 +1352,90 @@ function QueryListColumn({
       ),
     [run],
   );
+  const runCustomQueries = customReviewQueries.filter((query) => query.node.runId === run.id);
+  const totalQueryCount = queryItems.length + runCustomQueries.length;
+  const canSubmitCustomQuery = Boolean(customQueryControl?.draft.trim());
+
+  function submitCustomQuery(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    customQueryControl?.onSubmit();
+  }
 
   return (
     <aside className="panel detail-column query-list-column">
       <div className="section-heading compact">
         <h2>Queries</h2>
-        <span>{queryItems.length}</span>
+        <span>{totalQueryCount}</span>
       </div>
       <div className="detail-query-list">
+        {customQueryControl ? (
+          <form
+            className={`custom-query-card ${customQueryControl.isSelected ? 'selected' : ''}`}
+            onSubmit={submitCustomQuery}
+            onFocusCapture={customQueryControl.onSelectDraft}
+          >
+            <div className="custom-query-card-heading">
+              <span className="query-index">
+                <Search aria-hidden="true" />
+              </span>
+              <div>
+                <strong>Run your own query</strong>
+                <small>Type a query, then run it for human review.</small>
+              </div>
+            </div>
+            <label htmlFor="custom-review-query">Custom query</label>
+            <div className="custom-query-input-row">
+              <input
+                id="custom-review-query"
+                value={customQueryControl.draft}
+                onFocus={customQueryControl.onSelectDraft}
+                onChange={(event) => customQueryControl.onDraftChange(event.target.value)}
+                placeholder="Try: tense mystery series with short seasons"
+              />
+              <button
+                className="primary-action"
+                type="submit"
+                disabled={!canSubmitCustomQuery}
+              >
+                <PlayCircle aria-hidden="true" />
+                Run
+              </button>
+            </div>
+            <label className="custom-query-checkbox">
+              <input
+                type="checkbox"
+                checked={customQueryControl.addToGoldenSet}
+                onChange={(event) =>
+                  customQueryControl.onAddToGoldenSetChange(event.target.checked)
+                }
+              />
+              <span>Add query to golden set</span>
+            </label>
+          </form>
+        ) : null}
+
+        {runCustomQueries.map((item, index) => (
+          <button
+            key={item.seed.id}
+            type="button"
+            className={
+              item.seed.id === selectedSeedId
+                ? 'selected custom-query-result'
+                : 'custom-query-result'
+            }
+            onClick={() => onSelectSeed(item.seed.id)}
+          >
+            <span className="query-index">A{index + 1}</span>
+            <strong>{item.node.query}</strong>
+            <small>
+              Ad hoc
+              {item.addToGoldenSet ? ' · Golden set' : ''} ·{' '}
+              {formatMachineLabel(item.seed.expectedMediaType)}
+            </small>
+            <StatusPill label={queryStatusLabel(item.node)} />
+          </button>
+        ))}
+
         {queryItems.map((item, index) => (
           <button
             key={item.seed.id}
@@ -1222,6 +1849,11 @@ function App() {
   const [selectedNodeId, setSelectedNodeId] = useState(
     getDefaultNodeForRun(evaluationRuns[0])?.id ?? '',
   );
+  const [customQueryDraft, setCustomQueryDraft] = useState('');
+  const [addCustomQueryToGoldenSet, setAddCustomQueryToGoldenSet] = useState(false);
+  const [customReviewQueries, setCustomReviewQueries] = useState<CustomReviewQuery[]>(() =>
+    readStoredCustomReviewQueries().map(makeCustomReviewQuery),
+  );
   const [qualityReviews, setQualityReviews] = useState<QualityReviewMap>(() => ({
     ...initialQualityReviews(),
     ...(readStoredReviewState().qualityReviews ?? {}),
@@ -1236,8 +1868,35 @@ function App() {
   }));
 
   const selectedRun = evaluationRuns.find((run) => run.id === selectedRunId) ?? evaluationRuns[0];
-  const selectedNode = nodeById[selectedNodeId] ?? getDefaultNodeForRun(selectedRun);
-  const selectedSeed = seedById[selectedSeedId] ?? seedById[selectedRun.seedIds[0]];
+  const customNodeById = useMemo(
+    () =>
+      Object.fromEntries(customReviewQueries.map((query) => [query.node.id, query.node])) as Record<
+        string,
+        ConversationNode
+      >,
+    [customReviewQueries],
+  );
+  const customSeedById = useMemo(
+    () =>
+      Object.fromEntries(customReviewQueries.map((query) => [query.seed.id, query.seed])) as Record<
+        string,
+        SeedQuery
+      >,
+    [customReviewQueries],
+  );
+  const selectedRunCustomQueries = useMemo(
+    () => customReviewQueries.filter((query) => query.node.runId === selectedRun.id),
+    [customReviewQueries, selectedRun.id],
+  );
+  const customDraftSelected = selectedSeedId === customQueryDraftSeedId;
+  const selectedNode =
+    customDraftSelected && activeTab === 'review'
+      ? undefined
+      : customNodeById[selectedNodeId] ??
+        nodeById[selectedNodeId] ??
+        getDefaultNodeForRun(selectedRun);
+  const selectedSeed =
+    customSeedById[selectedSeedId] ?? seedById[selectedSeedId] ?? seedById[selectedRun.seedIds[0]];
   const rollups = useMemo(
     () =>
       Object.fromEntries(
@@ -1252,6 +1911,10 @@ function App() {
     saveReviewState(qualityReviews, gateReviews, copyReviews);
   }, [qualityReviews, gateReviews, copyReviews]);
 
+  useEffect(() => {
+    saveStoredCustomReviewQueries(customReviewQueries.map(storedRecordForCustomQuery));
+  }, [customReviewQueries]);
+
   function selectRun(run: EvaluationRun) {
     const nextNode = getDefaultNodeForRun(run);
     setSelectedRunId(run.id);
@@ -1259,14 +1922,53 @@ function App() {
     setSelectedNodeId(nextNode?.id ?? '');
   }
 
+  function selectCustomQueryDraft() {
+    setSelectedSeedId(customQueryDraftSeedId);
+    setSelectedNodeId('');
+  }
+
+  function executeCustomReviewQuery() {
+    const query = customQueryDraft.trim();
+
+    if (!query) {
+      return;
+    }
+
+    const customQuery = createCustomReviewQuery(
+      query,
+      selectedRun.id,
+      addCustomQueryToGoldenSet,
+    );
+
+    setCustomReviewQueries((queries) => [customQuery, ...queries]);
+    setSelectedSeedId(customQuery.seed.id);
+    setSelectedNodeId(customQuery.node.id);
+    setCustomQueryDraft('');
+    setAddCustomQueryToGoldenSet(false);
+  }
+
   function selectSeed(seedId: string) {
+    if (seedId === customQueryDraftSeedId) {
+      selectCustomQueryDraft();
+      return;
+    }
+
+    const customQuery = getCustomQueryBySeedId(customReviewQueries, seedId);
+
+    if (customQuery) {
+      setSelectedRunId(customQuery.node.runId);
+      setSelectedSeedId(seedId);
+      setSelectedNodeId(customQuery.node.id);
+      return;
+    }
+
     const root = getSeedRootNode(selectedRun, seedId);
     setSelectedSeedId(seedId);
     setSelectedNodeId(root?.id ?? getSeedNodes(selectedRun, seedId)[0]?.id ?? '');
   }
 
   function selectNode(nodeId: string) {
-    const nextNode = nodeById[nodeId];
+    const nextNode = customNodeById[nodeId] ?? nodeById[nodeId];
 
     if (nextNode) {
       setSelectedSeedId(nextNode.seedId);
@@ -1403,16 +2105,28 @@ function App() {
             rollup={selectedRollup}
             selectedSeedId={selectedSeed.id}
             selectedNode={selectedNode}
+            customReviewQueries={selectedRunCustomQueries}
             onSelectSeed={selectSeed}
             onSelectNode={selectNode}
             onOpenReview={() => setActiveTab('review')}
           />
         ) : null}
 
-        {activeTab === 'review' && selectedNode ? (
+        {activeTab === 'review' ? (
           <HumanReviewView
             run={selectedRun}
+            selectedSeedId={selectedSeedId}
             node={selectedNode}
+            customReviewQueries={selectedRunCustomQueries}
+            customQueryControl={{
+              draft: customQueryDraft,
+              addToGoldenSet: addCustomQueryToGoldenSet,
+              isSelected: customDraftSelected,
+              onSelectDraft: selectCustomQueryDraft,
+              onDraftChange: setCustomQueryDraft,
+              onAddToGoldenSetChange: setAddCustomQueryToGoldenSet,
+              onSubmit: executeCustomReviewQuery,
+            }}
             copyReviews={copyReviews}
             gateReviews={gateReviews}
             onSelectSeed={selectSeed}
@@ -1838,6 +2552,7 @@ function AutomatedDetailView({
   rollup,
   selectedSeedId,
   selectedNode,
+  customReviewQueries,
   onSelectSeed,
   onSelectNode,
   onOpenReview,
@@ -1846,11 +2561,12 @@ function AutomatedDetailView({
   rollup: RunRollup;
   selectedSeedId: string;
   selectedNode: ConversationNode;
+  customReviewQueries: CustomReviewQuery[];
   onSelectSeed: (seedId: string) => void;
   onSelectNode: (nodeId: string) => void;
   onOpenReview: () => void;
 }) {
-  const seedNodes = getSeedNodes(run, selectedSeedId);
+  const seedNodes = getSeedNodesForReview(run, selectedSeedId, customReviewQueries);
   const searchResultsAssessment = getQualityAssessment(selectedNode, 'Search Results');
   const blurbAssessment = getQualityAssessment(selectedNode, 'Blurb');
   const customDescriptionsAssessment = getQualityAssessment(selectedNode, 'Custom Descriptions');
@@ -1862,6 +2578,7 @@ function AutomatedDetailView({
         run={run}
         selectedSeedId={selectedSeedId}
         onSelectSeed={onSelectSeed}
+        customReviewQueries={customReviewQueries}
       />
 
       <section className="panel detail-column conversation-column">
@@ -2048,7 +2765,10 @@ function AutomatedDetailView({
 
 function HumanReviewView({
   run,
-  node,
+  selectedSeedId,
+  node: selectedNode,
+  customReviewQueries,
+  customQueryControl,
   copyReviews,
   gateReviews,
   onSelectSeed,
@@ -2058,7 +2778,10 @@ function HumanReviewView({
   onUpdateQualityReview,
 }: {
   run: EvaluationRun;
-  node: ConversationNode;
+  selectedSeedId: string;
+  node?: ConversationNode;
+  customReviewQueries: CustomReviewQuery[];
+  customQueryControl: CustomQueryControlProps;
   copyReviews: CopyReviewMap;
   gateReviews: GateReviewMap;
   onSelectSeed: (seedId: string) => void;
@@ -2080,7 +2803,26 @@ function HumanReviewView({
     patch: Partial<QualityReviewMap[string]>,
   ) => void;
 }) {
-  const siblingNodes = getSeedNodes(run, node.seedId);
+  if (!selectedNode) {
+    return (
+      <div className="view-grid detail-grid detail-four-column human-review-detail-grid">
+        <QueryListColumn
+          run={run}
+          selectedSeedId={selectedSeedId}
+          onSelectSeed={onSelectSeed}
+          customReviewQueries={customReviewQueries}
+          customQueryControl={customQueryControl}
+        />
+        <section
+          className="panel custom-review-blank-panel"
+          aria-label="Custom query review modules"
+        />
+      </div>
+    );
+  }
+
+  const node = selectedNode;
+  const siblingNodes = getSeedNodesForReview(run, node.seedId, customReviewQueries);
   const blurbReview = copyReviews[copyReviewKey(node.id, 'blurb')];
 
   function updateBlurbJudgment(patch: Partial<CopyReviewMap[string]>) {
@@ -2234,8 +2976,10 @@ function HumanReviewView({
     <div className="view-grid detail-grid detail-four-column human-review-detail-grid">
       <QueryListColumn
         run={run}
-        selectedSeedId={node.seedId}
+        selectedSeedId={selectedSeedId}
         onSelectSeed={onSelectSeed}
+        customReviewQueries={customReviewQueries}
+        customQueryControl={customQueryControl}
       />
 
       <section className="panel detail-column conversation-column">

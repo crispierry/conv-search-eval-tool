@@ -45,6 +45,7 @@ body {
 }
 
 button,
+input,
 select,
 textarea {
   font: inherit;
@@ -1290,6 +1291,104 @@ footer {
   justify-self: end;
   width: fit-content;
   font-size: 0.72rem;
+}
+
+.custom-query-card {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.custom-query-card.selected {
+  border-color: var(--teal);
+  background: #f0fdfa;
+  box-shadow: inset 0 0 0 1px var(--teal);
+}
+
+.custom-query-card-heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: start;
+}
+
+.custom-query-card-heading > div {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.custom-query-card-heading strong,
+.custom-query-card-heading small {
+  overflow-wrap: anywhere;
+}
+
+.custom-query-card-heading small,
+.custom-query-card > label,
+.custom-query-checkbox {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.custom-query-card .query-index svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.custom-query-card > label {
+  font-weight: 850;
+}
+
+.custom-query-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.45rem;
+}
+
+.custom-query-input-row input {
+  width: 100%;
+  min-height: 2.45rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 0.65rem;
+  background: #ffffff;
+  color: var(--text);
+}
+
+.custom-query-input-row input:focus {
+  outline: 2px solid rgba(15, 118, 110, 0.22);
+  border-color: var(--teal);
+}
+
+.custom-query-input-row .primary-action {
+  min-height: 2.45rem;
+}
+
+.custom-query-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 800;
+}
+
+.custom-query-checkbox input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--teal);
+}
+
+.custom-query-result .query-index {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.custom-review-blank-panel {
+  grid-column: span 3;
+  min-height: calc(100dvh - 13.5rem);
+  box-shadow: none;
 }
 
 .conversation-column .executed-query-nav {

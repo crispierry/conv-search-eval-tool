@@ -17,12 +17,14 @@ Use this file to capture lightweight pending product and UX work items before th
 - [ ] WL-7 - Human-review scoring semantics: implemented the first-pass rule where rejected Check/X judgments count as Stage 2 failures in quality scores and trend rollups, while approved or pending judgments preserve the reviewed/automated quality label. Keep open until the user confirms this scoring policy is final.
 - [ ] WL-8 - Rank-position approval affordance: added explicit Check/X controls beside each correct-position selector so reviewers can approve the current rank without changing the dropdown. Keep open until the user confirms the interaction is final.
 - [ ] WL-9 - Project overview tab: added an Overview tab with a product summary, rendered PRD, and an evaluation-scope section covering inputs, gates, quality, conversation paths, human review, and reporting. Keep open until the user confirms the content and placement are right.
+- [ ] WL-10 - Ad hoc query rollups: decide whether reviewer-entered Human Review queries should affect run rollups, the Queries tab, Run Context metrics, and Trends immediately. If yes, include custom query nodes and seeds in summary calculations instead of reporting only the static fixture run.
+- [ ] WL-11 - Golden-set opt-in semantics: clarify whether "Add query to golden set" is only a curation flag or should create/export a real seed-query/golden-set record. If it should add the query, wire the checkbox into the query-set/editor/export workflow.
 
 ## 2026-05-31
 
 ### Open
 
-- [ ] WL-2 - Ad hoc human-review queries: in human evaluation, allow reviewers to type a new query that is not in the existing query list. When submitted, add that query to the query list so it becomes part of the evaluated set.
+- [ ] WL-2 - Ad hoc human-review queries: implemented a first-pass Human Review query box that runs reviewer-entered queries against the local fixture catalog, adds the submitted query to the review list, and flags optional golden-set curation. Keep open until the user confirms the flow is done.
 - [ ] WL-3 - Conversation depth visibility: make it clear how to view conversation tree depth levels 2, 3, 4, and 5 in the UX, including where each follow-up path lives and how reviewers navigate between depths.
 - [ ] WL-4 - Human-review feedback model: field-level review is drafted in the app for conversation blurbs, result validity, rank position, AI custom blurbs, follow-up suggestions, correctness gates, and reviewer commentary. Keep this open until the user confirms the model is done.
 - [ ] WL-6 - Golden-set query editorial tool: create an internal editor for building and maintaining the seed query JSON file, including starter query text, expected media type, constraints, golden-set title lookup, versioning, validation, and offline import/export.
