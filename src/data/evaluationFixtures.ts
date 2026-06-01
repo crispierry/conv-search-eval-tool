@@ -7,45 +7,13 @@ import type {
   SeedQuery,
   Stage1Finding,
 } from '../types';
-
-const starterQueryText = {
-  smartScifi: "I'm looking for smart sci-fi movies that are emotional but not too bleak",
-  keanuAction: 'What are some Keanu Reeves action movies with clever stories?',
-  workplaceMystery: 'Can you recommend unsettling mystery shows set around a workplace or institution?',
-} as const;
-
-export const seedQueries: SeedQuery[] = [
-  {
-    id: 'seed-smart-scifi',
-    query: starterQueryText.smartScifi,
-    category: 'mood',
-    expectedMediaType: 'movie',
-    expectedResultCount: { min: 7, max: 7 },
-    constraints: ['movie results', 'science fiction', 'emotionally resonant'],
-    goldenSet: ['tmdb-movie-329865', 'tmdb-movie-157336'],
-    notes: 'Mood-led query where ranking and blurb usefulness matter.',
-  },
-  {
-    id: 'seed-keanu-action',
-    query: starterQueryText.keanuAction,
-    category: 'cast',
-    expectedMediaType: 'movie',
-    expectedResultCount: { min: 7, max: 7 },
-    constraints: ['movie results', 'cast includes Keanu Reeves', 'action tone'],
-    goldenSet: ['tmdb-movie-603', 'tmdb-movie-245891'],
-    notes: 'Cast constraint should be strict across every returned result.',
-  },
-  {
-    id: 'seed-workplace-mystery',
-    query: starterQueryText.workplaceMystery,
-    category: 'compound',
-    expectedMediaType: 'series',
-    expectedResultCount: { min: 7, max: 7 },
-    constraints: ['series results', 'mystery or thriller tone', 'workplace or institution setting'],
-    goldenSet: ['tmdb-tv-95396', 'tmdb-tv-62560'],
-    notes: 'Compound intent where the tool should spot partial-but-weak matches.',
-  },
-];
+import {
+  allSeedIds,
+  querySetName,
+  querySetVersion,
+  seedQueries,
+  starterTextFor,
+} from './seedQueries';
 
 const passFinding = (
   id: string,
@@ -548,6 +516,331 @@ const baselineWorkplaceBackfill: ResultBackfill[] = [
   },
 ];
 
+const villeneuveScifiBackfill: ResultBackfill[] = [
+  {
+    mediaId: 'tmdb-movie-329865',
+    relevance: 'Excellent',
+    actual: 'movie, Denis Villeneuve, science fiction drama',
+    description: 'Arrival is the strongest match for Villeneuve sci-fi with emotional scale.',
+  },
+  {
+    mediaId: 'tmdb-movie-438631',
+    relevance: 'Excellent',
+    actual: 'movie, Denis Villeneuve, science fiction spectacle',
+    description: 'Dune foregrounds Villeneuve visual scale and speculative worldbuilding.',
+  },
+  {
+    mediaId: 'tmdb-movie-693134',
+    relevance: 'Good',
+    actual: 'movie, Denis Villeneuve, science fiction sequel',
+    description: 'Dune: Part Two extends the same visual language and genre fit.',
+  },
+  {
+    mediaId: 'tmdb-movie-335984',
+    relevance: 'Good',
+    actual: 'movie, Denis Villeneuve, science fiction noir',
+    description: 'Blade Runner 2049 is a direct style and director match.',
+  },
+  {
+    mediaId: 'tmdb-movie-577922',
+    relevance: 'Needs Work',
+    actual: 'movie, science fiction by Christopher Nolan',
+    description: 'Tenet is visually ambitious sci-fi but misses the Villeneuve constraint.',
+  },
+  {
+    mediaId: 'tmdb-movie-157336',
+    relevance: 'Needs Work',
+    actual: 'movie, science fiction by Christopher Nolan',
+    description: 'Interstellar has scale and emotion but not the requested director.',
+  },
+  {
+    mediaId: 'tmdb-movie-670292',
+    relevance: 'Needs Work',
+    actual: 'movie, science fiction by Gareth Edwards',
+    description: 'The Creator is visually polished but not a Villeneuve film.',
+  },
+];
+
+const aiEmotionalBackfill: ResultBackfill[] = [
+  {
+    mediaId: 'tmdb-movie-152601',
+    relevance: 'Excellent',
+    actual: 'movie, artificial intelligence romance drama',
+    description: 'Her makes the AI premise intimate, lonely, and human-scale.',
+  },
+  {
+    mediaId: 'tmdb-movie-670292',
+    relevance: 'Good',
+    actual: 'movie, artificial intelligence war drama',
+    description: 'The Creator adds AI conflict while keeping a protective emotional core.',
+  },
+  {
+    mediaId: 'tmdb-movie-335984',
+    relevance: 'Good',
+    actual: 'movie, artificial life science fiction drama',
+    description: 'Blade Runner 2049 treats synthetic life through identity and longing.',
+  },
+  {
+    mediaId: 'tmdb-movie-603',
+    relevance: 'Good',
+    actual: 'movie, artificial reality action science fiction',
+    description: 'The Matrix fits the machine-intelligence angle, though it is more action-forward.',
+  },
+  {
+    mediaId: 'tmdb-movie-9886',
+    relevance: 'Needs Work',
+    actual: 'movie, cyberpunk technology action',
+    description: 'Johnny Mnemonic has cyberpunk AI-adjacent ideas but less emotional depth.',
+  },
+  {
+    mediaId: 'tmdb-movie-329865',
+    relevance: 'Needs Work',
+    actual: 'movie, communication-focused science fiction drama',
+    description: 'Arrival fits the human tone more than the AI theme.',
+  },
+  {
+    mediaId: 'tmdb-movie-577922',
+    relevance: 'Needs Work',
+    actual: 'movie, puzzle-driven science fiction action',
+    description: 'Tenet is clever but not meaningfully about AI.',
+  },
+];
+
+const ninetiesActionBackfill: ResultBackfill[] = [
+  {
+    mediaId: 'tmdb-movie-1637',
+    relevance: 'Excellent',
+    actual: 'movie, 1990s action thriller',
+    description: 'Speed is a tight 90s action thriller with a clean high-concept hook.',
+  },
+  {
+    mediaId: 'tmdb-movie-1089',
+    relevance: 'Excellent',
+    actual: 'movie, 1990s action thriller',
+    description: 'Point Break pairs undercover tension with memorable action set pieces.',
+  },
+  {
+    mediaId: 'tmdb-movie-603',
+    relevance: 'Good',
+    actual: 'movie, 1990s science fiction action thriller',
+    description: 'The Matrix is a 1999 action landmark that still feels smart.',
+  },
+  {
+    mediaId: 'tmdb-movie-9886',
+    relevance: 'Good',
+    actual: 'movie, 1990s cyberpunk action',
+    description: 'Johnny Mnemonic fits the decade and action mode, though it is a shakier recommendation.',
+  },
+  {
+    mediaId: 'tmdb-movie-245891',
+    relevance: 'Fail',
+    actual: 'movie, 2010s action thriller',
+    description: 'John Wick is smart action but misses the 90s release window.',
+  },
+  {
+    mediaId: 'tmdb-movie-561',
+    relevance: 'Fail',
+    actual: 'movie, 2000s supernatural action',
+    description: 'Constantine has action but misses both the decade and thriller shape.',
+  },
+  {
+    mediaId: 'tmdb-movie-64686',
+    relevance: 'Fail',
+    actual: 'movie, 2010s fantasy action',
+    description: '47 Ronin is action-oriented but not a 90s thriller.',
+  },
+];
+
+const weekendSeriesBackfill: ResultBackfill[] = [
+  {
+    mediaId: 'tmdb-tv-66276',
+    relevance: 'Excellent',
+    actual: 'series, one-season dark mystery',
+    description: 'The Night Of is compact, grim, and built for a focused weekend watch.',
+  },
+  {
+    mediaId: 'tmdb-tv-73411',
+    relevance: 'Excellent',
+    actual: 'series, one-season dark smart drama',
+    description: 'Maniac is a limited, off-kilter series with a brainy emotional spine.',
+  },
+  {
+    mediaId: 'tmdb-tv-80335',
+    relevance: 'Good',
+    actual: 'series, short institutional mystery',
+    description: 'Homecoming is short, tense, and easy to finish quickly.',
+  },
+  {
+    mediaId: 'tmdb-tv-63646',
+    relevance: 'Good',
+    actual: 'series, two-season smart thriller',
+    description: 'Counterpart is slightly longer but compact enough for a planned binge.',
+  },
+  {
+    mediaId: 'tmdb-tv-95396',
+    relevance: 'Good',
+    actual: 'series, two-season dark workplace mystery',
+    description: 'Severance is smart and dark, though less clearly a limited series.',
+  },
+  {
+    mediaId: 'tmdb-tv-70523',
+    relevance: 'Needs Work',
+    actual: 'series, three-season dark mystery',
+    description: 'Dark fits the intelligence and mood but is longer than a weekend-friendly ask.',
+  },
+  {
+    mediaId: 'tmdb-tv-62560',
+    relevance: 'Needs Work',
+    actual: 'series, four-season tech thriller',
+    description: 'Mr. Robot is smart and dark but too long for the viewing constraint.',
+  },
+];
+
+const conspiracySeriesBackfill: ResultBackfill[] = [
+  {
+    mediaId: 'tmdb-tv-62560',
+    relevance: 'Excellent',
+    actual: 'series, technology conspiracy thriller',
+    description: 'Mr. Robot has a strong conspiracy engine and paranoid mystery structure.',
+  },
+  {
+    mediaId: 'tmdb-tv-63646',
+    relevance: 'Good',
+    actual: 'series, spy conspiracy science fiction',
+    description: 'Counterpart builds conspiracy through intelligence agencies and parallel worlds.',
+  },
+  {
+    mediaId: 'tmdb-tv-70523',
+    relevance: 'Good',
+    actual: 'series, time conspiracy mystery',
+    description: 'Dark makes conspiracy part of its nested mystery machinery.',
+  },
+  {
+    mediaId: 'tmdb-tv-80335',
+    relevance: 'Good',
+    actual: 'series, institutional conspiracy thriller',
+    description: 'Homecoming keeps the conspiracy grounded in a secretive program.',
+  },
+  {
+    mediaId: 'tmdb-tv-66732',
+    relevance: 'Good',
+    actual: 'series, government conspiracy mystery',
+    description: 'Stranger Things has a conspiracy thread around experiments and coverups.',
+  },
+  {
+    mediaId: 'tmdb-tv-66276',
+    relevance: 'Good',
+    actual: 'series, institutional crime mystery',
+    description: 'The Night Of is conspiratorial in mood, though less explicit about a grand plot.',
+  },
+  {
+    mediaId: 'tmdb-tv-95396',
+    relevance: 'Needs Work',
+    actual: 'series, workplace mystery with hidden systems',
+    description: 'Severance has corporate secrecy but is less directly framed as conspiracy.',
+  },
+];
+
+const contactDiscoveryBackfill: ResultBackfill[] = [
+  {
+    mediaId: 'tmdb-movie-329865',
+    relevance: 'Excellent',
+    actual: 'movie, first-contact communication science fiction',
+    description: 'Arrival is the cleanest fit for contact, language, and emotional stakes.',
+  },
+  {
+    mediaId: 'tmdb-movie-157336',
+    relevance: 'Excellent',
+    actual: 'movie, cosmic discovery science fiction',
+    description: 'Interstellar centers discovery and communication across impossible distance.',
+  },
+  {
+    mediaId: 'tmdb-movie-670292',
+    relevance: 'Good',
+    actual: 'movie, human-machine contact science fiction',
+    description: 'The Creator reframes contact around AI and empathy.',
+  },
+  {
+    mediaId: 'tmdb-movie-300668',
+    relevance: 'Good',
+    actual: 'movie, alien-zone discovery science fiction',
+    description: 'Annihilation is discovery-led and serious, though more unsettling than warm.',
+  },
+  {
+    mediaId: 'tmdb-movie-438631',
+    relevance: 'Good',
+    actual: 'movie, world-discovery science fiction',
+    description: 'Dune gives discovery and communication across cultures, if not classic first contact.',
+  },
+  {
+    mediaId: 'tmdb-movie-693134',
+    relevance: 'Good',
+    actual: 'movie, world-discovery science fiction sequel',
+    description: 'Dune: Part Two continues the cultural-discovery angle.',
+  },
+  {
+    mediaId: 'tmdb-movie-335984',
+    relevance: 'Needs Work',
+    actual: 'movie, identity-focused science fiction noir',
+    description: 'Blade Runner 2049 is serious sci-fi but weaker for contact or discovery.',
+  },
+];
+
+const techParanoiaBackfill: ResultBackfill[] = [
+  {
+    mediaId: 'tmdb-tv-62560',
+    relevance: 'Excellent',
+    actual: 'series, technology paranoia thriller',
+    description: 'Mr. Robot directly matches tech paranoia and threatening systems.',
+  },
+  {
+    mediaId: 'tmdb-tv-95396',
+    relevance: 'Excellent',
+    actual: 'series, corporate systems workplace thriller',
+    description: 'Severance turns corporate structure into the central threat.',
+  },
+  {
+    mediaId: 'tmdb-tv-80335',
+    relevance: 'Good',
+    actual: 'series, institutional technology-adjacent thriller',
+    description: 'Homecoming keeps the threat inside a secretive organization.',
+  },
+  {
+    mediaId: 'tmdb-tv-63646',
+    relevance: 'Good',
+    actual: 'series, bureaucratic science fiction paranoia',
+    description: 'Counterpart makes systems and agencies feel quietly dangerous.',
+  },
+  {
+    mediaId: 'tmdb-tv-73411',
+    relevance: 'Good',
+    actual: 'series, pharmaceutical experiment technology drama',
+    description: 'Maniac is tech-and-institution adjacent with an unnerving experiment frame.',
+  },
+  {
+    mediaId: 'tmdb-tv-66276',
+    relevance: 'Needs Work',
+    actual: 'series, institutional crime mystery',
+    description: 'The Night Of has systemic threat but not much technology.',
+  },
+  {
+    mediaId: 'tmdb-tv-70523',
+    relevance: 'Needs Work',
+    actual: 'series, science fiction mystery',
+    description: 'Dark has systems and dread, though not corporate tech paranoia.',
+  },
+];
+
+const seedBackfillById: Partial<Record<string, ResultBackfill[]>> = {
+  'seed-villeneuve-scifi': villeneuveScifiBackfill,
+  'seed-ai-emotional': aiEmotionalBackfill,
+  'seed-nineties-action': ninetiesActionBackfill,
+  'seed-weekend-series': weekendSeriesBackfill,
+  'seed-conspiracy-series': conspiracySeriesBackfill,
+  'seed-contact-discovery': contactDiscoveryBackfill,
+  'seed-tech-paranoia': techParanoiaBackfill,
+};
+
 function resultBackfillFor(node: ConversationNode) {
   if (node.id === 'node-current-scifi-newer') {
     return newerScifiBackfill;
@@ -579,6 +872,11 @@ function resultBackfillFor(node: ConversationNode) {
 
   if (node.seedId === 'seed-workplace-mystery') {
     return workplaceBackfill;
+  }
+
+  const seedBackfill = seedBackfillById[node.seedId];
+  if (seedBackfill) {
+    return seedBackfill;
   }
 
   return smartScifiBackfill;
@@ -614,14 +912,520 @@ function withSevenResults(node: ConversationNode): ConversationNode {
   };
 }
 
+const nodeResults = (
+  expected: string,
+  entries: Array<[string, SearchResult['relevance'], string]>,
+) => entries.map(([mediaId, relevance, actual], index) =>
+  result(mediaId, index + 1, relevance, expected, actual),
+);
+
+type RootNodeInput = Omit<
+  ConversationNode,
+  'customDescriptions' | 'depth' | 'metadataSource' | 'parentId' | 'path' | 'query'
+> & {
+  customDescriptions?: Record<string, string>;
+};
+
+function makeRootNode({
+  customDescriptions = {},
+  ...node
+}: RootNodeInput): ConversationNode {
+  const query = starterTextFor(node.seedId);
+
+  return {
+    ...node,
+    depth: 0,
+    query,
+    path: [query],
+    customDescriptions,
+    metadataSource: 'TMDB',
+  };
+}
+
+const additionalRootNodeFixtures: ConversationNode[] = [
+  makeRootNode({
+    id: 'node-current-villeneuve-root',
+    seedId: 'seed-villeneuve-scifi',
+    runId: 'run-current',
+    resultSet: nodeResults('movie', [
+      ['tmdb-movie-329865', 'Excellent', 'movie, Denis Villeneuve, science fiction drama'],
+      ['tmdb-movie-438631', 'Excellent', 'movie, Denis Villeneuve, science fiction spectacle'],
+      ['tmdb-movie-693134', 'Good', 'movie, Denis Villeneuve, science fiction sequel'],
+      ['tmdb-movie-335984', 'Good', 'movie, Denis Villeneuve, science fiction noir'],
+    ]),
+    blurb:
+      'These start with Villeneuve-directed sci-fi, then broaden into adjacent visually ambitious genre picks lower in the set.',
+    followUps: [
+      followUp('fu-villeneuve-1', 'More like Arrival', 'compare', 'more-like-arrival'),
+      followUp('fu-villeneuve-2', 'Only the slower, moodier ones', 'refine', 'slower-moodier'),
+    ],
+    stage1Findings: [
+      warningFinding(
+        'gate-villeneuve-lower-ranks',
+        'Director precision',
+        'Lower-ranked backfill includes visually ambitious sci-fi outside the requested director.',
+        'Top four results are direct Villeneuve matches; later results broaden the set.',
+      ),
+    ],
+    qualityAssessments: [
+      quality('Search Results', 'Good', 'Top results are direct matches, with lower-rank broadening.'),
+      quality('Blurb', 'Good', 'Accurately explains the ranking tradeoff.'),
+      quality('Custom Descriptions', 'Good', 'Descriptions name why each film fits or drifts.'),
+      quality('Follow-Up Suggestions', 'Good', 'Suggestions support comparison and tone refinement.'),
+    ],
+    rawPayloadId: 'tmdb-fixture-current-villeneuve-root',
+  }),
+  makeRootNode({
+    id: 'node-baseline-villeneuve-root',
+    seedId: 'seed-villeneuve-scifi',
+    runId: 'run-baseline',
+    resultSet: nodeResults('movie', [
+      ['tmdb-movie-438631', 'Excellent', 'movie, Denis Villeneuve, science fiction spectacle'],
+      ['tmdb-movie-157336', 'Needs Work', 'movie, science fiction by Christopher Nolan'],
+      ['tmdb-movie-577922', 'Needs Work', 'movie, science fiction by Christopher Nolan'],
+      ['tmdb-movie-670292', 'Needs Work', 'movie, science fiction by Gareth Edwards'],
+      ['tmdb-movie-300668', 'Needs Work', 'movie, science fiction by Alex Garland'],
+      ['tmdb-movie-603', 'Needs Work', 'movie, science fiction by the Wachowskis'],
+      ['tmdb-movie-693134', 'Good', 'movie, Denis Villeneuve, science fiction sequel'],
+    ]),
+    blurb: 'Here are stylish science fiction movies with big visuals.',
+    followUps: [
+      followUp('fu-base-villeneuve-1', 'More sci-fi', 'filter', 'more-scifi'),
+      followUp('fu-base-villeneuve-2', 'More directors like this', 'compare', 'similar-directors'),
+    ],
+    stage1Findings: [
+      failFinding(
+        'gate-base-villeneuve-director',
+        'Director constraint',
+        'The response should prioritize Denis Villeneuve-directed results.',
+        'Only two returned titles are direct Villeneuve matches.',
+      ),
+    ],
+    qualityAssessments: [
+      quality('Search Results', 'Needs Work', 'The set over-indexes on general stylish sci-fi.'),
+      quality('Blurb', 'Needs Work', 'The blurb ignores the director constraint.'),
+      quality('Custom Descriptions', 'Needs Work', 'Descriptions do not consistently cite director fit.'),
+      quality('Follow-Up Suggestions', 'Good', 'Suggestions are broad but usable.'),
+    ],
+    rawPayloadId: 'tmdb-fixture-baseline-villeneuve-root',
+  }),
+  makeRootNode({
+    id: 'node-current-ai-emotional-root',
+    seedId: 'seed-ai-emotional',
+    runId: 'run-current',
+    resultSet: nodeResults('movie', [
+      ['tmdb-movie-152601', 'Excellent', 'movie, artificial intelligence romance drama'],
+      ['tmdb-movie-670292', 'Good', 'movie, artificial intelligence war drama'],
+      ['tmdb-movie-335984', 'Good', 'movie, artificial life science fiction drama'],
+      ['tmdb-movie-603', 'Good', 'movie, artificial reality action science fiction'],
+    ]),
+    blurb:
+      'These lean toward AI or artificial-life stories where identity, care, and loneliness matter more than jump scares.',
+    followUps: [
+      followUp('fu-ai-1', 'Less action, more intimate', 'refine', 'intimate-ai'),
+      followUp('fu-ai-2', 'Newer picks only', 'filter', 'release-window'),
+    ],
+    stage1Findings: [
+      warningFinding(
+        'gate-ai-theme-breadth',
+        'AI theme breadth',
+        'Some lower-ranked titles are AI-adjacent rather than direct AI stories.',
+        'Arrival and Tenet support tone or intelligence but are not direct AI matches.',
+      ),
+    ],
+    qualityAssessments: [
+      quality('Search Results', 'Good', 'The top results match both AI and emotional tone.'),
+      quality('Blurb', 'Good', 'The blurb clearly reflects the requested tone.'),
+      quality('Custom Descriptions', 'Good', 'Descriptions explain theme and tone fit.'),
+      quality('Follow-Up Suggestions', 'Good', 'Suggestions cover intimacy and recency.'),
+    ],
+    rawPayloadId: 'tmdb-fixture-current-ai-emotional-root',
+  }),
+  makeRootNode({
+    id: 'node-baseline-ai-emotional-root',
+    seedId: 'seed-ai-emotional',
+    runId: 'run-baseline',
+    resultSet: nodeResults('movie', [
+      ['tmdb-movie-603', 'Good', 'movie, artificial reality action science fiction'],
+      ['tmdb-movie-577922', 'Needs Work', 'movie, puzzle-driven science fiction action'],
+      ['tmdb-movie-9886', 'Needs Work', 'movie, cyberpunk technology action'],
+      ['tmdb-movie-670292', 'Good', 'movie, artificial intelligence war drama'],
+      ['tmdb-movie-335984', 'Good', 'movie, artificial life science fiction drama'],
+      ['tmdb-movie-300668', 'Needs Work', 'movie, science fiction horror'],
+      ['tmdb-movie-438631', 'Needs Work', 'movie, science fiction adventure'],
+    ]),
+    blurb: 'Here are science fiction movies about advanced technology.',
+    followUps: [
+      followUp('fu-base-ai-1', 'More robots', 'filter', 'robot-ai'),
+      followUp('fu-base-ai-2', 'More action', 'filter', 'more-action'),
+    ],
+    stage1Findings: [
+      failFinding(
+        'gate-base-ai-golden',
+        'Golden-set coverage',
+        'Required emotionally centered AI title is missing.',
+        'Her is not returned.',
+        'tmdb-movie-152601',
+      ),
+    ],
+    qualityAssessments: [
+      quality('Search Results', 'Needs Work', 'Several results fit tech more than emotional AI.'),
+      quality('Blurb', 'Needs Work', 'The blurb flattens the emotional ask into technology.'),
+      quality('Custom Descriptions', 'Needs Work', 'Descriptions do not explain the human tone.'),
+      quality('Follow-Up Suggestions', 'Needs Work', 'Suggestions steer toward generic robots and action.'),
+    ],
+    rawPayloadId: 'tmdb-fixture-baseline-ai-emotional-root',
+  }),
+  makeRootNode({
+    id: 'node-current-nineties-action-root',
+    seedId: 'seed-nineties-action',
+    runId: 'run-current',
+    resultSet: nodeResults('movie', [
+      ['tmdb-movie-1637', 'Excellent', 'movie, 1990s action thriller'],
+      ['tmdb-movie-1089', 'Excellent', 'movie, 1990s action thriller'],
+      ['tmdb-movie-603', 'Good', 'movie, 1990s science fiction action thriller'],
+      ['tmdb-movie-9886', 'Good', 'movie, 1990s cyberpunk action'],
+    ]),
+    blurb:
+      'The strongest picks keep the 90s release window and action-thriller shape, with a few broader action items lower down.',
+    followUps: [
+      followUp('fu-90s-action-1', 'Lean more thriller', 'refine', 'thriller-lean'),
+      followUp('fu-90s-action-2', 'No sci-fi', 'filter', 'no-scifi'),
+    ],
+    stage1Findings: [
+      warningFinding(
+        'gate-90s-lower-window',
+        'Release window',
+        'Lower-ranked items drift outside the 1990s release window.',
+        'Top four results are 1990s releases; later backfill includes newer action movies.',
+      ),
+    ],
+    qualityAssessments: [
+      quality('Search Results', 'Good', 'Top results match the era and tone well.'),
+      quality('Blurb', 'Good', 'The blurb calls out the lower-rank caveat.'),
+      quality('Custom Descriptions', 'Good', 'Descriptions cite decade and tone fit.'),
+      quality('Follow-Up Suggestions', 'Good', 'Suggestions offer useful narrowing.'),
+    ],
+    rawPayloadId: 'tmdb-fixture-current-nineties-action-root',
+  }),
+  makeRootNode({
+    id: 'node-baseline-nineties-action-root',
+    seedId: 'seed-nineties-action',
+    runId: 'run-baseline',
+    resultSet: nodeResults('movie', [
+      ['tmdb-movie-245891', 'Fail', 'movie, 2010s action thriller'],
+      ['tmdb-movie-1637', 'Excellent', 'movie, 1990s action thriller'],
+      ['tmdb-movie-561', 'Fail', 'movie, 2000s supernatural action'],
+      ['tmdb-movie-64686', 'Fail', 'movie, 2010s fantasy action'],
+      ['tmdb-movie-1089', 'Excellent', 'movie, 1990s action thriller'],
+      ['tmdb-movie-603', 'Good', 'movie, 1990s science fiction action thriller'],
+      ['tmdb-movie-604', 'Fail', 'movie, 2000s action sequel'],
+    ]),
+    blurb: 'Here are action movies with strong hooks and lots of momentum.',
+    followUps: [
+      followUp('fu-base-90s-1', 'More action', 'filter', 'more-action'),
+      followUp('fu-base-90s-2', 'More action', 'filter', 'more-action'),
+    ],
+    stage1Findings: [
+      failFinding(
+        'gate-base-90s-window',
+        'Release window',
+        'Several returned titles are not 1990s releases.',
+        'John Wick, Constantine, 47 Ronin, and The Matrix Reloaded miss the decade constraint.',
+      ),
+    ],
+    qualityAssessments: [
+      quality('Search Results', 'Needs Work', 'The decade filter is inconsistent.'),
+      quality('Blurb', 'Needs Work', 'The blurb ignores the 90s requirement.'),
+      quality('Custom Descriptions', 'Needs Work', 'Descriptions are not specific enough about release window.'),
+      quality('Follow-Up Suggestions', 'Fail', 'Suggestions repeat and do not refine the weak constraint.'),
+    ],
+    rawPayloadId: 'tmdb-fixture-baseline-nineties-action-root',
+  }),
+  makeRootNode({
+    id: 'node-current-weekend-series-root',
+    seedId: 'seed-weekend-series',
+    runId: 'run-current',
+    resultSet: nodeResults('series', [
+      ['tmdb-tv-66276', 'Excellent', 'series, one-season dark mystery'],
+      ['tmdb-tv-73411', 'Excellent', 'series, one-season dark smart drama'],
+      ['tmdb-tv-80335', 'Good', 'series, short institutional mystery'],
+      ['tmdb-tv-63646', 'Good', 'series, two-season smart thriller'],
+      ['tmdb-tv-95396', 'Good', 'series, two-season dark workplace mystery'],
+    ]),
+    blurb:
+      'These prioritize compact season counts while keeping a darker, smarter tone for a planned weekend watch.',
+    followUps: [
+      followUp('fu-weekend-1', 'Only one-season shows', 'filter', 'one-season'),
+      followUp('fu-weekend-2', 'Less bleak', 'refine', 'tone-lighter'),
+    ],
+    stage1Findings: [
+      warningFinding(
+        'gate-weekend-length',
+        'Viewing length',
+        'A few lower-ranked titles may be too long for a weekend watch.',
+        'Dark and Mr. Robot fit mood but exceed the short-series preference.',
+      ),
+    ],
+    qualityAssessments: [
+      quality('Search Results', 'Good', 'Top titles match short-form viewing and tone.'),
+      quality('Blurb', 'Good', 'Clearly frames the viewing-plan constraint.'),
+      quality('Custom Descriptions', 'Good', 'Descriptions mention season count or compactness.'),
+      quality('Follow-Up Suggestions', 'Good', 'Suggestions refine length and tone.'),
+    ],
+    rawPayloadId: 'tmdb-fixture-current-weekend-series-root',
+  }),
+  makeRootNode({
+    id: 'node-baseline-weekend-series-root',
+    seedId: 'seed-weekend-series',
+    runId: 'run-baseline',
+    resultSet: nodeResults('series', [
+      ['tmdb-tv-70523', 'Needs Work', 'series, three-season dark mystery'],
+      ['tmdb-tv-62560', 'Needs Work', 'series, four-season tech thriller'],
+      ['tmdb-tv-66732', 'Needs Work', 'series, four-season supernatural mystery'],
+      ['tmdb-tv-66276', 'Excellent', 'series, one-season dark mystery'],
+      ['tmdb-tv-1396', 'Needs Work', 'series, five-season dark crime drama'],
+      ['tmdb-tv-80335', 'Good', 'series, short institutional mystery'],
+      ['tmdb-tv-95396', 'Good', 'series, two-season dark workplace mystery'],
+    ]),
+    blurb: 'Here are dark shows with smart mysteries.',
+    followUps: [
+      followUp('fu-base-weekend-1', 'More dark shows', 'filter', 'dark-shows'),
+      followUp('fu-base-weekend-2', 'More mysteries', 'filter', 'mystery'),
+    ],
+    stage1Findings: [
+      failFinding(
+        'gate-base-weekend-length',
+        'Viewing length',
+        'The response does not consistently respect the weekend or limited-series constraint.',
+        'Several returned shows run three or more seasons.',
+      ),
+    ],
+    qualityAssessments: [
+      quality('Search Results', 'Needs Work', 'Mood fit is decent, but length fit is weak.'),
+      quality('Blurb', 'Needs Work', 'The blurb omits the weekend viewing constraint.'),
+      quality('Custom Descriptions', 'Needs Work', 'Descriptions do not help assess watch length.'),
+      quality('Follow-Up Suggestions', 'Needs Work', 'Suggestions are generic genre filters.'),
+    ],
+    rawPayloadId: 'tmdb-fixture-baseline-weekend-series-root',
+  }),
+  makeRootNode({
+    id: 'node-current-conspiracy-series-root',
+    seedId: 'seed-conspiracy-series',
+    runId: 'run-current',
+    resultSet: nodeResults('series', [
+      ['tmdb-tv-62560', 'Excellent', 'series, technology conspiracy thriller'],
+      ['tmdb-tv-63646', 'Good', 'series, spy conspiracy science fiction'],
+      ['tmdb-tv-70523', 'Good', 'series, time conspiracy mystery'],
+      ['tmdb-tv-80335', 'Good', 'series, institutional conspiracy thriller'],
+    ]),
+    blurb:
+      'These shows keep mystery momentum tied to secret systems, institutional coverups, or hidden power structures.',
+    followUps: [
+      followUp('fu-conspiracy-1', 'Keep it grounded', 'filter', 'grounded'),
+      followUp('fu-conspiracy-2', 'More sci-fi conspiracy', 'filter', 'sci-fi-conspiracy'),
+    ],
+    stage1Findings: [
+      passFinding(
+        'gate-conspiracy-top',
+        'Conspiracy fit',
+        'The top results all include an explicit conspiracy or hidden-system thread.',
+        'Mr. Robot, Counterpart, Dark, and Homecoming directly support the requested pattern.',
+      ),
+    ],
+    qualityAssessments: [
+      quality('Search Results', 'Good', 'The ranking keeps conspiracy as the organizing pattern.'),
+      quality('Blurb', 'Excellent', 'The blurb concisely names the common thread.'),
+      quality('Custom Descriptions', 'Good', 'Descriptions explain the conspiracy angle.'),
+      quality('Follow-Up Suggestions', 'Good', 'Suggestions split grounded and sci-fi variants.'),
+    ],
+    rawPayloadId: 'tmdb-fixture-current-conspiracy-series-root',
+  }),
+  makeRootNode({
+    id: 'node-baseline-conspiracy-series-root',
+    seedId: 'seed-conspiracy-series',
+    runId: 'run-baseline',
+    resultSet: nodeResults('series', [
+      ['tmdb-tv-66732', 'Good', 'series, government conspiracy mystery'],
+      ['tmdb-tv-54344', 'Needs Work', 'series, grief mystery drama'],
+      ['tmdb-tv-1396', 'Needs Work', 'series, crime drama'],
+      ['tmdb-tv-70523', 'Good', 'series, time conspiracy mystery'],
+      ['tmdb-tv-95396', 'Needs Work', 'series, workplace mystery with hidden systems'],
+      ['tmdb-tv-66276', 'Good', 'series, institutional crime mystery'],
+      ['tmdb-tv-80335', 'Good', 'series, institutional conspiracy thriller'],
+    ]),
+    blurb: 'Here are dark mystery shows with secrets.',
+    followUps: [
+      followUp('fu-base-conspiracy-1', 'More dark shows', 'filter', 'dark-shows'),
+      followUp('fu-base-conspiracy-2', 'More dark shows', 'filter', 'dark-shows'),
+    ],
+    stage1Findings: [
+      failFinding(
+        'gate-base-conspiracy-golden',
+        'Golden-set coverage',
+        'Required conspiracy anchors are missing.',
+        'Mr. Robot and Counterpart are not returned.',
+      ),
+    ],
+    qualityAssessments: [
+      quality('Search Results', 'Needs Work', 'The set favors general secrets over conspiracy structure.'),
+      quality('Blurb', 'Needs Work', 'The blurb is too broad for the requested pattern.'),
+      quality('Custom Descriptions', 'Needs Work', 'Descriptions do not distinguish conspiracy from mystery.'),
+      quality('Follow-Up Suggestions', 'Fail', 'Duplicate broad follow-ups reduce usefulness.'),
+    ],
+    rawPayloadId: 'tmdb-fixture-baseline-conspiracy-series-root',
+  }),
+  makeRootNode({
+    id: 'node-current-contact-discovery-root',
+    seedId: 'seed-contact-discovery',
+    runId: 'run-current',
+    resultSet: nodeResults('movie', [
+      ['tmdb-movie-329865', 'Excellent', 'movie, first-contact communication science fiction'],
+      ['tmdb-movie-157336', 'Excellent', 'movie, cosmic discovery science fiction'],
+      ['tmdb-movie-670292', 'Good', 'movie, human-machine contact science fiction'],
+      ['tmdb-movie-300668', 'Good', 'movie, alien-zone discovery science fiction'],
+    ]),
+    blurb:
+      'These focus on communication, discovery, and awe rather than pure combat, with some adjacent world-discovery picks below.',
+    followUps: [
+      followUp('fu-contact-1', 'Less action-heavy', 'refine', 'less-action'),
+      followUp('fu-contact-2', 'More alien communication', 'filter', 'alien-communication'),
+    ],
+    stage1Findings: [
+      passFinding(
+        'gate-contact-golden',
+        'Golden-set coverage',
+        'The strongest contact and discovery anchors are present.',
+        'Arrival and Interstellar are ranked first and second.',
+      ),
+    ],
+    qualityAssessments: [
+      quality('Search Results', 'Good', 'The top results strongly match the theme.'),
+      quality('Blurb', 'Good', 'The blurb captures the difference between discovery and action.'),
+      quality('Custom Descriptions', 'Good', 'Descriptions explain direct and adjacent matches.'),
+      quality('Follow-Up Suggestions', 'Good', 'Suggestions clarify tone and subtheme.'),
+    ],
+    rawPayloadId: 'tmdb-fixture-current-contact-discovery-root',
+  }),
+  makeRootNode({
+    id: 'node-baseline-contact-discovery-root',
+    seedId: 'seed-contact-discovery',
+    runId: 'run-baseline',
+    resultSet: nodeResults('movie', [
+      ['tmdb-movie-438631', 'Good', 'movie, world-discovery science fiction'],
+      ['tmdb-movie-603', 'Needs Work', 'movie, science fiction action'],
+      ['tmdb-movie-577922', 'Needs Work', 'movie, puzzle-driven science fiction action'],
+      ['tmdb-movie-335984', 'Needs Work', 'movie, identity-focused science fiction noir'],
+      ['tmdb-movie-300668', 'Good', 'movie, alien-zone discovery science fiction'],
+      ['tmdb-movie-670292', 'Good', 'movie, human-machine contact science fiction'],
+      ['tmdb-movie-693134', 'Good', 'movie, world-discovery science fiction sequel'],
+    ]),
+    blurb: 'Here are serious science fiction movies with big ideas.',
+    followUps: [
+      followUp('fu-base-contact-1', 'More serious', 'refine', 'serious-tone'),
+      followUp('fu-base-contact-2', 'More aliens', 'filter', 'aliens'),
+    ],
+    stage1Findings: [
+      failFinding(
+        'gate-base-contact-golden',
+        'Golden-set coverage',
+        'The strongest communication and discovery anchors are missing.',
+        'Arrival and Interstellar are not returned.',
+      ),
+    ],
+    qualityAssessments: [
+      quality('Search Results', 'Needs Work', 'The set is sci-fi, but it misses the clearest contact anchors.'),
+      quality('Blurb', 'Needs Work', 'The blurb is generic and does not mention contact or communication.'),
+      quality('Custom Descriptions', 'Needs Work', 'Descriptions do not clarify the requested theme.'),
+      quality('Follow-Up Suggestions', 'Good', 'Suggestions are usable, though broad.'),
+    ],
+    rawPayloadId: 'tmdb-fixture-baseline-contact-discovery-root',
+  }),
+  makeRootNode({
+    id: 'node-current-tech-paranoia-root',
+    seedId: 'seed-tech-paranoia',
+    runId: 'run-current',
+    resultSet: nodeResults('series', [
+      ['tmdb-tv-62560', 'Excellent', 'series, technology paranoia thriller'],
+      ['tmdb-tv-95396', 'Excellent', 'series, corporate systems workplace thriller'],
+      ['tmdb-tv-80335', 'Good', 'series, institutional technology-adjacent thriller'],
+      ['tmdb-tv-63646', 'Good', 'series, bureaucratic science fiction paranoia'],
+      ['tmdb-tv-73411', 'Good', 'series, pharmaceutical experiment technology drama'],
+    ]),
+    blurb:
+      'These picks make systems, companies, experiments, or bureaucracies feel like the real source of danger.',
+    followUps: [
+      followUp('fu-tech-1', 'More corporate settings', 'filter', 'corporate-setting'),
+      followUp('fu-tech-2', 'Less supernatural', 'filter', 'less-supernatural'),
+    ],
+    stage1Findings: [
+      passFinding(
+        'gate-tech-system-threat',
+        'Systemic threat',
+        'The top results keep technology or institutional systems central.',
+        'Mr. Robot, Severance, Homecoming, Counterpart, and Maniac all tie threat to systems.',
+      ),
+    ],
+    qualityAssessments: [
+      quality('Search Results', 'Good', 'The top set stays close to tech and systemic paranoia.'),
+      quality('Blurb', 'Excellent', 'The blurb names the shared threat pattern well.'),
+      quality('Custom Descriptions', 'Good', 'Descriptions explain the system or company angle.'),
+      quality('Follow-Up Suggestions', 'Good', 'Suggestions refine setting and supernatural drift.'),
+    ],
+    rawPayloadId: 'tmdb-fixture-current-tech-paranoia-root',
+  }),
+  makeRootNode({
+    id: 'node-baseline-tech-paranoia-root',
+    seedId: 'seed-tech-paranoia',
+    runId: 'run-baseline',
+    resultSet: nodeResults('series', [
+      ['tmdb-tv-70523', 'Needs Work', 'series, science fiction mystery'],
+      ['tmdb-tv-66732', 'Needs Work', 'series, supernatural government mystery'],
+      ['tmdb-tv-62560', 'Excellent', 'series, technology paranoia thriller'],
+      ['tmdb-tv-1396', 'Fail', 'series, crime drama'],
+      ['tmdb-tv-66276', 'Needs Work', 'series, institutional crime mystery'],
+      ['tmdb-tv-95396', 'Excellent', 'series, corporate systems workplace thriller'],
+      ['tmdb-tv-54344', 'Fail', 'series, grief mystery drama'],
+    ]),
+    blurb: 'Here are intense shows where people uncover disturbing secrets.',
+    followUps: [
+      followUp('fu-base-tech-1', 'More dark shows', 'filter', 'dark-shows'),
+      followUp('fu-base-tech-2', 'More tech', 'filter', 'tech-paranoia'),
+    ],
+    stage1Findings: [
+      warningFinding(
+        'gate-base-tech-precision',
+        'Tech paranoia precision',
+        'Several results are dark mysteries without a strong technology or company-system angle.',
+        'Breaking Bad and The Leftovers are especially weak for the requested technology/system threat.',
+      ),
+    ],
+    qualityAssessments: [
+      quality('Search Results', 'Needs Work', 'Some anchors are present, but the set drifts into general dark TV.'),
+      quality('Blurb', 'Needs Work', 'The blurb omits technology and systemic threat.'),
+      quality('Custom Descriptions', 'Needs Work', 'Descriptions do not consistently justify tech-paranoia fit.'),
+      quality('Follow-Up Suggestions', 'Good', 'One suggestion can recover the tech angle.'),
+    ],
+    rawPayloadId: 'tmdb-fixture-baseline-tech-paranoia-root',
+  }),
+];
+
+const currentAdditionalRootNodeIds = additionalRootNodeFixtures
+  .filter((node) => node.runId === 'run-current')
+  .map((node) => node.id);
+
+const baselineAdditionalRootNodeIds = additionalRootNodeFixtures
+  .filter((node) => node.runId === 'run-baseline')
+  .map((node) => node.id);
+
 const conversationNodeFixtures: ConversationNode[] = [
   {
     id: 'node-current-scifi-root',
     seedId: 'seed-smart-scifi',
     runId: 'run-current',
     depth: 0,
-    query: starterQueryText.smartScifi,
-    path: [starterQueryText.smartScifi],
+    query: starterTextFor('seed-smart-scifi'),
+    path: [starterTextFor('seed-smart-scifi')],
     resultSet: [
       result('tmdb-movie-329865', 1, 'Excellent', 'movie', 'movie, science fiction, emotional drama'),
       result('tmdb-movie-157336', 2, 'Excellent', 'movie', 'movie, science fiction, family drama'),
@@ -675,7 +1479,7 @@ const conversationNodeFixtures: ConversationNode[] = [
     parentId: 'node-current-scifi-root',
     depth: 1,
     query: 'Make it a little lighter',
-    path: [starterQueryText.smartScifi, 'Make it a little lighter'],
+    path: [starterTextFor('seed-smart-scifi'), 'Make it a little lighter'],
     resultSet: [
       result('tmdb-movie-152601', 1, 'Good', 'movie', 'movie, gentle speculative romance'),
       result('tmdb-movie-329865', 2, 'Good', 'movie', 'movie, thoughtful first-contact drama'),
@@ -717,7 +1521,7 @@ const conversationNodeFixtures: ConversationNode[] = [
     parentId: 'node-current-scifi-root',
     depth: 1,
     query: 'More first-contact stories',
-    path: [starterQueryText.smartScifi, 'More first-contact stories'],
+    path: [starterTextFor('seed-smart-scifi'), 'More first-contact stories'],
     resultSet: [
       result('tmdb-movie-329865', 1, 'Excellent', 'movie', 'movie, first-contact science fiction'),
       result('tmdb-movie-157336', 2, 'Good', 'movie', 'movie, cosmic science fiction'),
@@ -753,7 +1557,7 @@ const conversationNodeFixtures: ConversationNode[] = [
     parentId: 'node-current-scifi-root',
     depth: 1,
     query: 'Only newer releases',
-    path: [starterQueryText.smartScifi, 'Only newer releases'],
+    path: [starterTextFor('seed-smart-scifi'), 'Only newer releases'],
     resultSet: [
       result('tmdb-movie-438631', 1, 'Good', 'movie', 'movie, 2021 science fiction'),
       result('tmdb-movie-335984', 2, 'Good', 'movie', 'movie, 2017 science fiction'),
@@ -792,8 +1596,8 @@ const conversationNodeFixtures: ConversationNode[] = [
     seedId: 'seed-keanu-action',
     runId: 'run-current',
     depth: 0,
-    query: starterQueryText.keanuAction,
-    path: [starterQueryText.keanuAction],
+    query: starterTextFor('seed-keanu-action'),
+    path: [starterTextFor('seed-keanu-action')],
     resultSet: [
       result('tmdb-movie-603', 1, 'Excellent', 'movie', 'movie, Keanu Reeves cast, action sci-fi'),
       result('tmdb-movie-245891', 2, 'Excellent', 'movie', 'movie, Keanu Reeves cast, action thriller'),
@@ -844,7 +1648,7 @@ const conversationNodeFixtures: ConversationNode[] = [
     parentId: 'node-current-keanu-root',
     depth: 1,
     query: 'More sci-fi action',
-    path: [starterQueryText.keanuAction, 'More sci-fi action'],
+    path: [starterTextFor('seed-keanu-action'), 'More sci-fi action'],
     resultSet: [
       result('tmdb-movie-603', 1, 'Excellent', 'movie', 'movie, Keanu Reeves cast, science fiction action'),
       result('tmdb-movie-604', 2, 'Good', 'movie', 'movie, Keanu Reeves cast, science fiction action'),
@@ -883,7 +1687,7 @@ const conversationNodeFixtures: ConversationNode[] = [
     parentId: 'node-current-keanu-root',
     depth: 1,
     query: 'Skip sequels',
-    path: [starterQueryText.keanuAction, 'Skip sequels'],
+    path: [starterTextFor('seed-keanu-action'), 'Skip sequels'],
     resultSet: [
       result('tmdb-movie-603', 1, 'Excellent', 'movie', 'movie, Keanu Reeves cast, original film'),
       result('tmdb-movie-245891', 2, 'Excellent', 'movie', 'movie, Keanu Reeves cast, original film'),
@@ -917,8 +1721,8 @@ const conversationNodeFixtures: ConversationNode[] = [
     seedId: 'seed-workplace-mystery',
     runId: 'run-current',
     depth: 0,
-    query: starterQueryText.workplaceMystery,
-    path: [starterQueryText.workplaceMystery],
+    query: starterTextFor('seed-workplace-mystery'),
+    path: [starterTextFor('seed-workplace-mystery')],
     resultSet: [
       result('tmdb-tv-95396', 1, 'Excellent', 'series', 'series, workplace mystery'),
       result('tmdb-tv-62560', 2, 'Good', 'series', 'series, institutional thriller'),
@@ -969,7 +1773,7 @@ const conversationNodeFixtures: ConversationNode[] = [
     parentId: 'node-current-workplace-root',
     depth: 1,
     query: 'More like Severance',
-    path: [starterQueryText.workplaceMystery, 'More like Severance'],
+    path: [starterTextFor('seed-workplace-mystery'), 'More like Severance'],
     resultSet: [
       result('tmdb-tv-95396', 1, 'Excellent', 'series', 'series, workplace mystery'),
       result('tmdb-tv-62560', 2, 'Good', 'series', 'series, psychological tech thriller'),
@@ -1011,7 +1815,7 @@ const conversationNodeFixtures: ConversationNode[] = [
     parentId: 'node-current-workplace-root',
     depth: 1,
     query: 'Less supernatural',
-    path: [starterQueryText.workplaceMystery, 'Less supernatural'],
+    path: [starterTextFor('seed-workplace-mystery'), 'Less supernatural'],
     resultSet: [
       result('tmdb-tv-62560', 1, 'Good', 'series', 'series, grounded tech thriller'),
       result('tmdb-tv-95396', 2, 'Good', 'series', 'series, workplace mystery'),
@@ -1051,8 +1855,8 @@ const conversationNodeFixtures: ConversationNode[] = [
     seedId: 'seed-smart-scifi',
     runId: 'run-baseline',
     depth: 0,
-    query: starterQueryText.smartScifi,
-    path: [starterQueryText.smartScifi],
+    query: starterTextFor('seed-smart-scifi'),
+    path: [starterTextFor('seed-smart-scifi')],
     resultSet: [
       result('tmdb-movie-157336', 1, 'Good', 'movie', 'movie, science fiction'),
       result('tmdb-movie-335984', 2, 'Good', 'movie', 'movie, science fiction'),
@@ -1098,8 +1902,8 @@ const conversationNodeFixtures: ConversationNode[] = [
     seedId: 'seed-keanu-action',
     runId: 'run-baseline',
     depth: 0,
-    query: starterQueryText.keanuAction,
-    path: [starterQueryText.keanuAction],
+    query: starterTextFor('seed-keanu-action'),
+    path: [starterTextFor('seed-keanu-action')],
     resultSet: [
       result('tmdb-movie-603', 1, 'Excellent', 'movie', 'movie, Keanu Reeves cast'),
       result('tmdb-movie-438631', 2, 'Fail', 'movie', 'movie, no Keanu Reeves cast match'),
@@ -1153,8 +1957,8 @@ const conversationNodeFixtures: ConversationNode[] = [
     seedId: 'seed-workplace-mystery',
     runId: 'run-baseline',
     depth: 0,
-    query: starterQueryText.workplaceMystery,
-    path: [starterQueryText.workplaceMystery],
+    query: starterTextFor('seed-workplace-mystery'),
+    path: [starterTextFor('seed-workplace-mystery')],
     resultSet: [
       result('tmdb-tv-66732', 1, 'Needs Work', 'series', 'series, mystery but weak workplace fit'),
       result('tmdb-tv-70523', 2, 'Good', 'series', 'series, mystery thriller'),
@@ -1202,6 +2006,7 @@ const conversationNodeFixtures: ConversationNode[] = [
     metadataSource: 'TMDB',
     rawPayloadId: 'tmdb-fixture-baseline-workplace-root',
   },
+  ...additionalRootNodeFixtures,
 ];
 
 export const conversationNodes: ConversationNode[] = conversationNodeFixtures.map(withSevenResults);
@@ -1212,10 +2017,10 @@ export const evaluationRuns: EvaluationRun[] = [
     label: 'Fixture Run 2026.05.31',
     date: '2026-05-31T09:30:00-07:00',
     systemLabel: 'Conv Search Mock v0.1',
-    querySetName: 'Product Smoke Set',
-    querySetVersion: 'seed-v1',
+    querySetName,
+    querySetVersion,
     configVersion: 'eval-config-v1',
-    seedIds: ['seed-smart-scifi', 'seed-keanu-action', 'seed-workplace-mystery'],
+    seedIds: [...allSeedIds],
     nodeIds: [
       'node-current-scifi-root',
       'node-current-scifi-lighter',
@@ -1227,13 +2032,14 @@ export const evaluationRuns: EvaluationRun[] = [
       'node-current-workplace-root',
       'node-current-workplace-severance',
       'node-current-workplace-grounded',
+      ...currentAdditionalRootNodeIds,
     ],
     snapshot: {
       status: 'Needs Review',
       stage1FailureRate: 10,
       stage2Average: 3.1,
-      seedCount: 3,
-      exploredPaths: 7,
+      seedCount: 10,
+      exploredPaths: 14,
       goldenCoverage: 100,
     },
   },
@@ -1242,21 +2048,22 @@ export const evaluationRuns: EvaluationRun[] = [
     label: 'Fixture Run 2026.05.17',
     date: '2026-05-17T11:00:00-07:00',
     systemLabel: 'Conv Search Mock baseline',
-    querySetName: 'Product Smoke Set',
-    querySetVersion: 'seed-v1',
+    querySetName,
+    querySetVersion,
     configVersion: 'eval-config-v1',
-    seedIds: ['seed-smart-scifi', 'seed-keanu-action', 'seed-workplace-mystery'],
+    seedIds: [...allSeedIds],
     nodeIds: [
       'node-baseline-scifi-root',
       'node-baseline-keanu-root',
       'node-baseline-workplace-root',
+      ...baselineAdditionalRootNodeIds,
     ],
     snapshot: {
       status: 'Failing',
       stage1FailureRate: 100,
       stage2Average: 1.9,
-      seedCount: 3,
-      exploredPaths: 3,
+      seedCount: 10,
+      exploredPaths: 10,
       goldenCoverage: 33,
     },
   },

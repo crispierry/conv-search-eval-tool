@@ -31,6 +31,7 @@ npm run build
 
 - [Product requirements document](docs/PRODUCT_BRIEF.md)
 - [Evaluation framework](docs/EVALUATION_FRAMEWORK.md)
+- [Seed query set](docs/SEED_QUERIES.md)
 - [Mock app requirements](docs/MOCK_APP_REQUIREMENTS.md)
 - [Requirements Q&A](docs/REQUIREMENTS_QA.md)
 - [Brainstorming notes](docs/BRAINSTORMING.md)

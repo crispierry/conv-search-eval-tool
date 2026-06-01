@@ -67,6 +67,8 @@ Result count is treated as a sub-check of search results quality, not as a separ
 
 The app should maintain a separate structured file for initial conversational search queries.
 
+Implementation note: the editable query-set source is `src/data/seedQueries.json`; maintenance instructions live in `docs/SEED_QUERIES.md`.
+
 Each seed query should support:
 
 - `id`: stable query identifier.
@@ -89,6 +91,25 @@ Golden sets are strict but not exhaustive.
 - Extra returned titles are allowed when they still satisfy the query constraints.
 - The app should report golden-set coverage as a percentage.
 - If no golden set is defined, the app should evaluate results using metadata, constraints, and AI judgment.
+
+## Golden-Set Query Editor
+
+The product should eventually include an internal editorial tool for creating and maintaining the seed query and golden-set list. The editor should make the standalone query-set file easier to manage while preserving the same structured data model used by offline editing.
+
+The editor should allow authorized product or editorial users to:
+
+- Create, edit, duplicate, disable, and reorder starter queries.
+- Edit query metadata, including category, expected media type, expected result count, constraints, notes, and query-set version.
+- Search or browse the local metadata catalog when adding titles to a golden set.
+- Add and remove golden-set titles with clear title, year, media type, and source metadata shown beside each ID.
+- Validate that every golden-set ID exists in the available metadata source.
+- Flag duplicate queries, duplicate IDs, missing required fields, unsupported categories, invalid media types, and stale title IDs before export.
+- Preview how each query will appear in the Queries view before saving.
+- Export the edited query set back to the standalone structured file so it remains usable offline and reviewable in source control.
+
+The editor should preserve stable query IDs after a query has been used in an evaluation run. When a query changes materially, the preferred workflow is to bump the query-set version and keep the historical run snapshot tied to its original version.
+
+The editor should not replace the evaluation workflow. Its job is to curate input data: starter queries, constraints, and golden-set expectations. Returned results, branch traversal, AI scoring, and human review remain part of evaluation runs.
 
 ## Automated Evaluation
 
@@ -321,4 +342,5 @@ The mock should use a small amount of fixture data, just enough to demonstrate t
 - Replacement of the TMDb prototype adapter with licensed enterprise sources.
 - Scheduled recurring evaluations.
 - Reviewer assignment and calibration.
+- Editorial tool for maintaining seed queries, constraints, and golden sets.
 - Exportable reports and team sharing.

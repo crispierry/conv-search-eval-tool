@@ -1,0 +1,137 @@
+{
+  "name": "Product Smoke Set",
+  "version": "seed-v2",
+  "description": "Starter conversational search queries and golden-set expectations for fixture evaluation runs.",
+  "queries": [
+    {
+      "id": "seed-smart-scifi",
+      "query": "I'm looking for smart sci-fi movies that are emotional but not too bleak",
+      "category": "mood",
+      "expected_media_type": "movie",
+      "expected_result_count": {
+        "min": 7,
+        "max": 7
+      },
+      "constraints": ["movie results", "science fiction", "emotionally resonant"],
+      "golden_set": ["tmdb-movie-329865", "tmdb-movie-157336"],
+      "notes": "Mood-led query where ranking and blurb usefulness matter."
+    },
+    {
+      "id": "seed-keanu-action",
+      "query": "What are some Keanu Reeves action movies with clever stories?",
+      "category": "cast",
+      "expected_media_type": "movie",
+      "expected_result_count": {
+        "min": 7,
+        "max": 7
+      },
+      "constraints": ["movie results", "cast includes Keanu Reeves", "action tone"],
+      "golden_set": ["tmdb-movie-603", "tmdb-movie-245891"],
+      "notes": "Cast constraint should be strict across every returned result."
+    },
+    {
+      "id": "seed-workplace-mystery",
+      "query": "Can you recommend unsettling mystery shows set around a workplace or institution?",
+      "category": "compound",
+      "expected_media_type": "series",
+      "expected_result_count": {
+        "min": 7,
+        "max": 7
+      },
+      "constraints": ["series results", "mystery or thriller tone", "workplace or institution setting"],
+      "golden_set": ["tmdb-tv-95396", "tmdb-tv-62560"],
+      "notes": "Compound intent where the tool should spot partial-but-weak matches."
+    },
+    {
+      "id": "seed-villeneuve-scifi",
+      "query": "Can you show me visually stunning Denis Villeneuve sci-fi movies?",
+      "category": "director",
+      "expected_media_type": "movie",
+      "expected_result_count": {
+        "min": 7,
+        "max": 7
+      },
+      "constraints": ["movie results", "directed by Denis Villeneuve", "science fiction or speculative tone"],
+      "golden_set": ["tmdb-movie-329865", "tmdb-movie-438631"],
+      "notes": "Director-led query where style, genre, and creator metadata all matter."
+    },
+    {
+      "id": "seed-ai-emotional",
+      "query": "I want movies about artificial intelligence that feel more human than scary",
+      "category": "compound",
+      "expected_media_type": "movie",
+      "expected_result_count": {
+        "min": 7,
+        "max": 7
+      },
+      "constraints": ["movie results", "artificial intelligence theme", "human or emotional tone"],
+      "golden_set": ["tmdb-movie-152601", "tmdb-movie-670292"],
+      "notes": "Theme-and-tone query that should not collapse into generic sci-fi action."
+    },
+    {
+      "id": "seed-nineties-action",
+      "query": "What are some 90s action thrillers that still feel smart and rewatchable?",
+      "category": "compound",
+      "expected_media_type": "movie",
+      "expected_result_count": {
+        "min": 7,
+        "max": 7
+      },
+      "constraints": ["movie results", "1990s release window", "action thriller tone"],
+      "golden_set": ["tmdb-movie-1637", "tmdb-movie-1089"],
+      "notes": "Era-constrained action query where release year precision matters."
+    },
+    {
+      "id": "seed-weekend-series",
+      "query": "I need a dark, smart limited series I can finish over a weekend",
+      "category": "mood",
+      "expected_media_type": "series",
+      "expected_result_count": {
+        "min": 7,
+        "max": 7
+      },
+      "constraints": ["series results", "short or limited-series scope", "dark smart tone"],
+      "golden_set": ["tmdb-tv-66276", "tmdb-tv-73411"],
+      "notes": "Viewing-plan query where runtime/season count and mood both matter."
+    },
+    {
+      "id": "seed-conspiracy-series",
+      "query": "Can you recommend mystery shows with a strong conspiracy thread?",
+      "category": "compound",
+      "expected_media_type": "series",
+      "expected_result_count": {
+        "min": 7,
+        "max": 7
+      },
+      "constraints": ["series results", "mystery structure", "conspiracy thread"],
+      "golden_set": ["tmdb-tv-62560", "tmdb-tv-63646"],
+      "notes": "Plot-structure query that should separate conspiracy from general darkness."
+    },
+    {
+      "id": "seed-contact-discovery",
+      "query": "What are serious sci-fi movies about contact, discovery, or communication?",
+      "category": "exploratory",
+      "expected_media_type": "movie",
+      "expected_result_count": {
+        "min": 7,
+        "max": 7
+      },
+      "constraints": ["movie results", "science fiction", "contact discovery or communication theme"],
+      "golden_set": ["tmdb-movie-329865", "tmdb-movie-157336"],
+      "notes": "Exploratory theme query where adjacent discovery stories can still be useful."
+    },
+    {
+      "id": "seed-tech-paranoia",
+      "query": "I want shows about tech paranoia where companies or systems feel threatening",
+      "category": "compound",
+      "expected_media_type": "series",
+      "expected_result_count": {
+        "min": 7,
+        "max": 7
+      },
+      "constraints": ["series results", "technology or corporate systems", "paranoid or threatening tone"],
+      "golden_set": ["tmdb-tv-62560", "tmdb-tv-95396"],
+      "notes": "Systemic-threat query where setting and tone should both stay in scope."
+    }
+  ]
+}
