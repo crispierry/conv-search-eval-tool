@@ -4,6 +4,8 @@ A web application for evaluating conversational search experiences against TMDB-
 
 The first implementation is mock-driven but fully interactive. It uses lightweight TMDB-shaped fixtures for seed queries, conversation trees, poster art, metadata checks, quality scoring, human review, and trends. A TMDB client is included for future live enrichment when a read access token is provided.
 
+![Conversational Search Evaluation Tool dashboard](docs/assets/app-screenshot.jpg)
+
 ## Open Source Status
 
 This project is open source under the [MIT License](LICENSE). Contributions are welcome through issues and pull requests.
