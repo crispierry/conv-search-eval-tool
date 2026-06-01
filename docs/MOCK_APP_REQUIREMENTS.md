@@ -61,21 +61,22 @@ Should include:
 
 ### Human Review Detail
 
-Purpose: let a reviewer validate an AI assessment.
+Purpose: let a reviewer validate the returned response and the AI-generated explanation fields.
 
 Should include:
 
 - Seed query and current follow-up path.
 - Conversation context.
 - Returned titles with poster art.
-- Result metadata checks.
-- Conversation blurb.
-- Custom descriptions.
-- Follow-up suggestions.
-- AI assessment by quality area.
-- Stage 1 gate findings.
-- Reviewer controls: approve, reject, change quality label, comment.
+- Result validity review for each returned title.
+- Rank-position review for each returned title.
+- Conversation blurb review.
+- AI custom blurb review for each returned title.
+- Follow-up suggestion review.
+- Stage 1 gate findings and evidence.
+- Reviewer controls: clear check/X judgment and commentary for each reviewable field.
 - Stage 1 controls: acknowledge, comment, mark false positive.
+- A scrollable Human Judgment column so long gate and follow-up sections remain reachable.
 
 ### Trends And Reports
 
@@ -102,7 +103,7 @@ Fixtures should be sufficient to show:
 - One or more seed queries.
 - Returned results with posters.
 - A blurb.
-- Custom descriptions.
+- AI custom blurbs.
 - Follow-up suggestions.
 - Simulated follow-up responses.
 - Stage 1 pass, warning, and fail examples.
@@ -118,9 +119,9 @@ The mock should demonstrate:
 - Selecting an evaluation run.
 - Opening a seed query or conversation node.
 - Seeing automated findings.
-- Reviewing the four quality areas.
-- Approving or rejecting AI assessments.
-- Adding reviewer comments.
+- Reviewing field-level human judgments for results, copy, follow-ups, and gates.
+- Approving or rejecting conversation blurbs, title relevance, rank position, AI custom blurbs, and follow-up suggestions.
+- Adding reviewer commentary at the field, title, suggestion, or gate level.
 - Seeing how a finding rolls up to the run summary.
 - Viewing trend charts or summaries over time.
 
@@ -132,7 +133,7 @@ Use labels that are easy for product teammates to understand:
 - Quality Scores.
 - Search Results.
 - Blurb.
-- Custom Descriptions.
+- AI custom blurb.
 - Follow-Up Suggestions.
 - Needs Review.
 - Hard Failure.
@@ -146,7 +147,7 @@ The mock should leave conceptual room for:
 
 - Live API execution.
 - Parallel follow-up branch workers.
-- WBD metadata validation.
+- Enterprise metadata validation.
 - IMDb-style metadata enrichment.
 - Scheduled runs.
 - Exportable reports.

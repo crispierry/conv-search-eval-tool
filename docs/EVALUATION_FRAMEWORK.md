@@ -60,7 +60,7 @@ Quality areas:
 
 - Search results quality.
 - Conversation blurb quality.
-- Custom description quality.
+- AI custom blurb quality.
 - Follow-up suggestion quality.
 
 ## Search Results Quality
@@ -96,9 +96,9 @@ Checks:
 
 Blocklist matches are Stage 1 failures. AI sensitivity concerns are warnings or Stage 2 quality issues unless they trigger a hard gate.
 
-## Custom Description Quality
+## AI Custom Blurb Quality
 
-Each returned title may include a custom description explaining why it matches the query.
+Each returned title may include an AI custom blurb explaining why it matches the query.
 
 Checks:
 
@@ -157,8 +157,9 @@ V1 can simulate this behavior with fixture data.
 
 Findings should be captured at the most specific level possible and rolled up.
 
-- Result-level: title-specific metadata, poster, and description findings.
-- Node-level: response-level gates and quality labels.
+- Result-level: title-specific metadata, poster, result validity, rank position, and custom-blurb findings.
+- Suggestion-level: follow-up text, navigation target, approval/rejection, and reviewer commentary.
+- Node-level: response-level gates, conversation blurb judgment, and quality labels.
 - Branch-level: sequence of node results and depth coherence.
 - Tree-level: seed query summary across all branches.
 - Run-level: aggregate status across the query set.
@@ -182,14 +183,25 @@ If TMDB metadata is missing or incomplete, record a warning or hard failure acco
 
 ## Human Review
 
-Human reviewers should see the AI assessment by default.
+Human reviewers should see the automated response, metadata evidence, and AI assessment context while making field-level judgments.
 
-For each quality area, reviewers can:
+For search results, reviewers can:
 
-- Approve the AI assessment.
-- Reject the AI assessment.
-- Change the quality label.
-- Add a comment.
+- Mark whether each returned title is a valid result for the query.
+- Choose the correct rank position for each title.
+- Add title-level commentary.
+
+For generated copy, reviewers can:
+
+- Approve or reject the overall conversation blurb.
+- Approve or reject each AI custom blurb for a returned title.
+- Add commentary to the blurb or per-title copy.
+
+For follow-up suggestions, reviewers can:
+
+- Approve or reject each suggested follow-up.
+- Add commentary to each suggestion.
+- Open a follow-up response when fixture data exists for that suggestion.
 
 For Stage 1 gates, reviewers can:
 
@@ -198,6 +210,8 @@ For Stage 1 gates, reviewers can:
 - Mark a false positive.
 
 The original automated result and human override must both remain visible in the audit trail.
+
+Current V1 implementation note: binary human Check/X judgments are stored separately from the Stage 2 quality label. The product still needs to define whether Check/X should map directly to quality scores or remain a parallel audit signal.
 
 ## Trend Metrics
 

@@ -12,7 +12,7 @@ The first mock should make the evaluation flow obvious:
 - Simulate conversational search responses.
 - Evaluate metadata and correctness gates.
 - Score quality areas.
-- Review AI assessments as a human.
+- Review field-level results, generated copy, follow-up suggestions, and gate findings as a human.
 - Track results over time.
 
 ## Agreed Requirements
@@ -25,7 +25,7 @@ The first mock should make the evaluation flow obvious:
 - Human review should focus on one query run or response node at a time.
 - Every follow-up suggestion should be recorded for later aggregate analysis.
 - The app should separate Stage 1 correctness gates from Stage 2 quality scoring.
-- WBD metadata is primary when available, with IMDb-style metadata as fallback or reference.
+- Licensed enterprise metadata is primary when available, with IMDb-style metadata as fallback or reference.
 - Trend reporting should show whether quality improves across dates and runs.
 
 ## Query Categories To Support
@@ -91,10 +91,10 @@ The trend view should help answer:
 ## Product Experience Notes
 
 - Use product-readable labels instead of technical jargon where possible.
-- Keep AI assessment visible but clearly labeled.
+- Keep AI assessment context visible or reachable, clearly labeled.
 - Make failures easy to scan.
 - Preserve evidence for every failure.
-- Make human review fast: approve, reject, change label, comment.
+- Make human review fast: approve or reject individual fields, judge result validity, correct rank position, and comment where the issue occurs.
 - Avoid overbuilding synthetic data for the first mock.
 
 ## Open Questions
@@ -105,7 +105,7 @@ The trend view should help answer:
 - Should result count targets be defined per query, per category, or both?
 - Should reviewer calibration be part of V1 or a future phase?
 - What export format will product and engineering want first?
-- What metadata fields will be available from WBD in the future?
+- What metadata fields will be available from a future enterprise source?
 
 ## Future Product Surface
 
@@ -118,5 +118,5 @@ The trend view should help answer:
 - Exportable reports.
 - Scheduled recurring evaluations.
 - Live conversational search API integration.
-- WBD metadata integration.
+- Enterprise metadata integration.
 - IMDb or third-party metadata enrichment.

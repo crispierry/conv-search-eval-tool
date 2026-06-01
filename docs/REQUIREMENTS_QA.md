@@ -8,7 +8,7 @@ This file records the product requirements Q&A that shaped the PRD.
 
 Approved answer: use a query run for human review.
 
-A query run means one starter conversational search query plus the returned response, including result count, returned titles, conversation blurb, custom descriptions, follow-up suggestions, metadata checks, AI evaluation, and human review.
+A query run means one starter conversational search query plus the returned response, including result count, returned titles, conversation blurb, AI custom blurbs, follow-up suggestions, metadata checks, AI evaluation, and human review.
 
 ### 2. How should automated evaluation handle follow-ups?
 
@@ -73,19 +73,23 @@ Approved answer: use four labels.
 - Needs Work.
 - Fail.
 
-Apply the scale to search results, conversation blurb, custom descriptions, and follow-up suggestions.
+Apply the scale to search results, conversation blurb, AI custom blurbs, and follow-up suggestions.
 
 ### 12. Should AI review be visible to human reviewers?
 
 Approved answer: yes.
 
-Human reviewers should see the AI assessment by default, clearly labeled as AI assessment.
+Human reviewers should see the AI-generated response fields they are judging, and they should be able to access clearly labeled AI assessment context from the automated detail view.
 
 ### 13. What can human reviewers do?
 
-Approved answer: reviewers can approve or reject the AI assessment, change the quality label, and comment for each quality area.
+Approved answer: reviewers can make field-level judgments and preserve comments next to the exact item reviewed.
+
+Reviewers can approve or reject the conversation blurb, mark whether each returned title is valid for the query, choose the correct rank position for each returned title, approve or reject each AI custom blurb, approve or reject each follow-up suggestion, and add commentary for each field.
 
 For Stage 1 gates, reviewers can acknowledge, comment, or mark a false positive while preserving the original automated finding.
+
+Open follow-up: decide whether binary Check/X judgments should directly change Stage 2 quality labels and trend rollups, or remain separate audit signals.
 
 ### 14. What should be saved for audit/history?
 
@@ -113,9 +117,9 @@ Blocklist matches are Stage 1 hard failures. AI sensitivity findings are warning
 
 ### 18. What is the metadata source of truth?
 
-Approved answer: WBD internal metadata is primary. IMDb-style metadata is fallback or reference.
+Approved answer: licensed enterprise metadata is primary when available. IMDb-style metadata is fallback or reference.
 
-Source conflicts should be warnings. Hard failures should use WBD when available. Mock implementation should simulate both source types.
+Source conflicts should be warnings. Hard failures should use the enterprise source of truth when available. Mock implementation should simulate multiple source types.
 
 ### 19. Should every returned result satisfy query constraints?
 

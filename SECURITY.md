@@ -1,10 +1,10 @@
 # Security
 
-This is a private project and may eventually handle sensitive search queries, conversation logs, reviewer notes, or internal evaluation data.
+This project may eventually handle sensitive search queries, conversation logs, reviewer notes, or private evaluation data.
 
 ## Current State
 
-No application code, data ingestion, or deployed service exists yet.
+The current app is a local, mock-driven prototype that runs on fixture data by default. Live TMDB enrichment is optional and requires a local read access token.
 
 ## Data Handling Principles
 
@@ -15,4 +15,4 @@ No application code, data ingestion, or deployed service exists yet.
 
 ## Reporting Issues
 
-For now, raise security concerns directly with the repository owner.
+Please do not open public issues for exploitable vulnerabilities or leaked credentials. Use GitHub private vulnerability reporting if it is enabled for the repository; otherwise contact the maintainers privately.

@@ -4,11 +4,17 @@ A web application for evaluating conversational search experiences against TMDB-
 
 The first implementation is mock-driven but fully interactive. It uses lightweight TMDB-shaped fixtures for seed queries, conversation trees, poster art, metadata checks, quality scoring, human review, and trends. A TMDB client is included for future live enrichment when a read access token is provided.
 
+## Open Source Status
+
+This project is open source under the [MIT License](LICENSE). Contributions are welcome through issues and pull requests.
+
+The app can run entirely from included fixture data. Live TMDB enrichment is optional and requires your own TMDB read access token.
+
 ## Current Focus
 
 - Select saved evaluation runs and inspect run-level rollups.
 - Review automated conversation-tree findings for seed queries and follow-ups.
-- Validate or reject AI quality assessments with reviewer comments.
+- Validate or reject human-review fields with reviewer comments, including conversation blurbs, returned titles, ranking position, AI custom blurbs, and follow-up suggestions.
 - Mark correctness gate findings as acknowledged or false positive.
 - Report trends for Stage 1 failures, Stage 2 quality, golden-set coverage, follow-up depth, and repeated suggestion patterns.
 - Keep TMDB as the source for movie and series metadata.
@@ -38,14 +44,17 @@ npm run build
 - [Work log](docs/WORK_LOG.md)
 - [Decision log](docs/DECISIONS.md)
 - [Contributing guide](CONTRIBUTING.md)
+- [Code of conduct](CODE_OF_CONDUCT.md)
 - [Security notes](SECURITY.md)
+- [Third-party notices](THIRD_PARTY_NOTICES.md)
+- [Open-source readiness notes](OPEN_SOURCE_READINESS.md)
 - [Changelog](CHANGELOG.md)
 
 ## Project Status
 
-Private early-stage project. V1 is a working web app with lightweight fixture data. Live conversational search execution, scheduled recurring runs, reviewer assignment, and exportable reports are future phases.
+Early-stage project. V1 is a working web app with lightweight fixture data. Live conversational search execution, scheduled recurring runs, reviewer assignment, and exportable reports are future phases.
 
-This product uses the TMDB API but is not endorsed or certified by TMDB. See the [TMDB API docs](https://developer.themoviedb.org/docs) and [image docs](https://developer.themoviedb.org/docs/image-basics) for the live metadata and poster conventions used by the implementation.
+This product uses the TMDB API but is not endorsed or certified by TMDB. See the [TMDB API docs](https://developer.themoviedb.org/docs), [image docs](https://developer.themoviedb.org/docs/image-basics), and [third-party notices](THIRD_PARTY_NOTICES.md) for the live metadata and poster conventions used by the implementation.
 
 ## Working Agreement
 

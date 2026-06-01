@@ -134,6 +134,7 @@ span {
 .review-form p,
 .gate-form p,
 .result-review p,
+.review-comment label,
 .blurb-block p {
   color: var(--muted);
 }
@@ -164,6 +165,8 @@ span {
 .finding svg,
 .follow-up-list svg,
 .review-controls svg,
+.human-decision-button svg,
+.icon-link svg,
 .result-title-line svg,
 .metadata-tags svg,
 .finding-line svg {
@@ -311,6 +314,7 @@ footer {
 
 .primary-action,
 .review-controls button,
+.human-decision-button,
 .follow-up-list button,
 .segmented button {
   min-height: 2.25rem;
@@ -616,6 +620,52 @@ footer {
   background: var(--rose-soft);
 }
 
+.human-decision-controls {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(4rem, 1fr));
+  gap: 0.35rem;
+  min-width: 8.35rem;
+}
+
+.human-decision-button {
+  width: 100%;
+  min-height: 2.55rem;
+  font-weight: 850;
+  background: #ffffff;
+  color: #475569;
+}
+
+.human-decision-button.check:not(.selected):hover {
+  border-color: var(--green);
+  color: var(--green);
+  background: #f7fef9;
+}
+
+.human-decision-button.x:not(.selected):hover {
+  border-color: var(--rose);
+  color: var(--rose);
+  background: #fff7f8;
+}
+
+.human-decision-button.check.selected {
+  border-color: var(--green);
+  background: var(--green-soft);
+  color: var(--green);
+  box-shadow: inset 0 0 0 1px var(--green);
+}
+
+.human-decision-button.x.selected {
+  border-color: var(--rose);
+  background: var(--rose-soft);
+  color: var(--rose);
+  box-shadow: inset 0 0 0 1px var(--rose);
+}
+
+.human-decision-button svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
 .empty-state {
   min-height: 4rem;
   display: flex;
@@ -725,8 +775,74 @@ footer {
   gap: 0.25rem;
 }
 
+.human-title-tile {
+  min-height: 20rem;
+}
+
 .title-summary {
   min-width: 0;
+}
+
+.rank-review-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.65rem;
+}
+
+.result-fit-review {
+  display: grid;
+  justify-items: end;
+  gap: 0.25rem;
+}
+
+.result-fit-review .human-decision-controls {
+  min-width: 7.4rem;
+  grid-template-columns: repeat(2, minmax(3.45rem, 1fr));
+}
+
+.result-fit-review .human-decision-button {
+  min-height: 2.2rem;
+  padding: 0 0.5rem;
+}
+
+.position-review-row {
+  display: grid;
+  gap: 0.3rem;
+  margin-top: 0.2rem;
+}
+
+.position-review-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.position-review-header .human-decision-controls {
+  min-width: 7.4rem;
+  grid-template-columns: repeat(2, minmax(3.45rem, 1fr));
+}
+
+.position-review-header .human-decision-button {
+  min-height: 2.2rem;
+  padding: 0 0.5rem;
+}
+
+.position-review-row label {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.position-review-row select {
+  width: 100%;
+  min-height: 2.2rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 0.55rem;
+  background: #ffffff;
+  color: var(--text);
 }
 
 .title-custom-description {
@@ -775,6 +891,84 @@ footer {
   align-items: center;
   justify-content: flex-end;
   gap: 0.4rem;
+}
+
+.human-description-card {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.human-copy-content {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.human-description-card .result-judgment-actions {
+  justify-content: flex-start;
+  margin-top: 0.25rem;
+}
+
+.follow-up-review-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.follow-up-review-card {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-soft);
+}
+
+.follow-up-review-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: start;
+}
+
+.follow-up-review-heading > div {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.follow-up-review-heading strong {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: flex-start;
+  overflow-wrap: anywhere;
+}
+
+.follow-up-review-heading svg {
+  margin-top: 0.1rem;
+}
+
+.follow-up-review-card .result-judgment-actions {
+  justify-content: flex-start;
+}
+
+.follow-up-review-card textarea {
+  min-height: 4rem;
+}
+
+.review-comment {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.human-description-card .review-comment {
+  grid-column: 1 / -1;
+}
+
+.review-comment label {
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.result-comment textarea {
+  min-height: 4.1rem;
 }
 
 .poster {
@@ -1338,6 +1532,26 @@ footer {
   color: var(--text);
 }
 
+.human-review-block {
+  gap: 0.65rem;
+}
+
+.human-review-block .content-heading {
+  align-items: center;
+}
+
+.human-review-block textarea,
+.compact-gate-form textarea {
+  min-height: 4rem;
+}
+
+.human-judgment-column {
+  max-height: calc(100dvh - 13.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
 .judgment-section {
   display: grid;
   gap: 0.75rem;
@@ -1471,6 +1685,28 @@ footer {
   justify-content: center;
   color: var(--teal);
   background: #ffffff;
+}
+
+.icon-link {
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--teal);
+  background: #ffffff;
+}
+
+.icon-link:hover {
+  border-color: var(--teal);
+  background: #f0fdfa;
+}
+
+.icon-link:disabled {
+  color: var(--muted);
+  background: #f8fafc;
 }
 
 .metadata-tags {

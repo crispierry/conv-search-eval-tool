@@ -1,6 +1,8 @@
 import { conversationNodes, nodeById, seedById } from '../data/evaluationFixtures';
 import type {
   ConversationNode,
+  CopyReviewMap,
+  CopyReviewTarget,
   EvaluationRun,
   GateReviewMap,
   QualityAssessment,
@@ -19,6 +21,14 @@ export const qualityScores: Record<QualityLabel, number> = {
 
 export function qualityReviewKey(nodeId: string, area: QualityAssessment['area']) {
   return `${nodeId}::${area}`;
+}
+
+export function copyReviewKey(
+  nodeId: string,
+  target: CopyReviewTarget,
+  mediaId = 'overall',
+) {
+  return `${nodeId}::${target}::${mediaId}`;
 }
 
 export function gateReviewKey(nodeId: string, findingId: string) {
@@ -66,6 +76,42 @@ export function initialGateReviews() {
   }, {});
 }
 
+export function initialCopyReviews() {
+  return conversationNodes.reduce<CopyReviewMap>((reviews, node) => {
+    reviews[copyReviewKey(node.id, 'blurb')] = {
+      decision: 'Pending',
+      comment: '',
+    };
+
+    node.resultSet.forEach((resultItem) => {
+      reviews[copyReviewKey(node.id, 'result-validity', resultItem.mediaId)] = {
+        decision: 'Pending',
+        comment: '',
+      };
+
+      reviews[copyReviewKey(node.id, 'result-position', resultItem.mediaId)] = {
+        decision: 'Pending',
+        comment: '',
+        position: resultItem.rank,
+      };
+
+      reviews[copyReviewKey(node.id, 'title-description', resultItem.mediaId)] = {
+        decision: 'Pending',
+        comment: '',
+      };
+    });
+
+    node.followUps.forEach((followUp) => {
+      reviews[copyReviewKey(node.id, 'follow-up-suggestion', followUp.id)] = {
+        decision: 'Pending',
+        comment: '',
+      };
+    });
+
+    return reviews;
+  }, {});
+}
+
 function effectiveQualityScore(
   node: ConversationNode,
   area: QualityAssessment['area'],
@@ -73,6 +119,11 @@ function effectiveQualityScore(
 ) {
   const automated = node.qualityAssessments.find((assessment) => assessment.area === area);
   const review = qualityReviews[qualityReviewKey(node.id, area)];
+
+  if (review?.decision === 'Rejected') {
+    return qualityScores.Fail;
+  }
+
   const label = review?.label ?? automated?.label ?? 'Fail';
   return qualityScores[label];
 }

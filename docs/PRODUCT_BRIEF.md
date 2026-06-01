@@ -4,7 +4,7 @@
 
 Build an internal evaluation tool that helps the product team understand whether conversational search is getting better over time and what is still failing.
 
-The tool should support automated evaluation of imported conversational search queries, human review of AI assessments, and trend reporting across evaluation runs.
+The tool should support automated evaluation of imported conversational search queries, field-level human review of returned results and generated response fields, and trend reporting across evaluation runs.
 
 ## Primary Audience
 
@@ -30,14 +30,14 @@ In scope:
 - Use TMDb metadata for first prototype examples and validation, behind a replaceable metadata adapter.
 - Evaluate each response with two stages: correctness gates and quality scoring.
 - Explore suggested follow-up questions as a bounded conversation tree.
-- Support human review of AI assessments.
+- Support field-level human review of search results, ranking, generated copy, follow-up suggestions, and correctness gates.
 - Record full evaluation snapshots.
 - Show run-level trends and recurring failure patterns.
 
 Out of scope for V1:
 
 - Live conversational search API integration.
-- Production WBD metadata integration.
+- Production enterprise metadata integration.
 - Real IMDb Enterprise API dependency.
 - Scheduled recurring automated runs.
 - Full user management or permissions.
@@ -47,7 +47,7 @@ Out of scope for V1:
 
 The core automated unit is a seed query that expands into a conversation tree.
 
-The core human review unit is a query run or conversation node: one query or follow-up question plus the returned response, result set, blurb, custom descriptions, and follow-up suggestions.
+The core human review unit is a query run or conversation node: one query or follow-up question plus the returned response, result set, conversation blurb, AI custom blurbs, and follow-up suggestions.
 
 Each response is evaluated in two stages:
 
@@ -58,7 +58,7 @@ The four primary quality areas are:
 
 - Search results quality.
 - Conversation blurb quality.
-- Custom description quality.
+- AI custom blurb quality.
 - Follow-up suggestion quality.
 
 Result count is treated as a sub-check of search results quality, not as a separate top-level quality area.
@@ -151,24 +151,24 @@ At the aggregate level:
 
 For the first prototype, the app should use TMDb as the entertainment metadata source. TMDb gives the project a lower-friction way to exercise movie, TV, people, image, and search workflows while the evaluation experience is still being designed.
 
-The prototype should avoid coupling the reviewer workflow, scenario model, scoring surfaces, or reporting logic directly to TMDb-specific fields. The metadata layer should be treated as a replaceable adapter so the project can later swap in licensed IMDb Enterprise data and WBD enterprise data without redesigning the evaluation product.
+The prototype should avoid coupling the reviewer workflow, scenario model, scoring surfaces, or reporting logic directly to TMDb-specific fields. The metadata layer should be treated as a replaceable adapter so the project can later swap in licensed IMDb Enterprise data or another enterprise metadata source without redesigning the evaluation product.
 
 The app should support three metadata source concepts:
 
 - TMDb metadata as the first prototype source.
-- WBD enterprise metadata as the future primary source of truth.
+- A future licensed enterprise metadata source as the primary source of truth.
 - IMDb Enterprise metadata as a future fallback or reference source.
 
 Rules:
 
 - V1 should keep metadata access behind a replaceable adapter.
-- V1 can combine TMDb responses with static fixtures where needed to simulate unavailable WBD or IMDb fields.
+- V1 can combine TMDb responses with static fixtures where needed to simulate unavailable enterprise or IMDb fields.
 - Correctness gates should record TMDb as the metadata source for movie and series checks in the prototype.
 - TMDb title, media type, cast, crew, release year, rating, overview, and poster path fields should be preserved in evaluation snapshots when available.
 - Missing or incomplete TMDb metadata should be recorded as a warning or hard failure according to the Stage 1 rules.
 - Reviewer, scenario, scoring, and reporting models should not depend on TMDb-specific field names.
-- If WBD enterprise metadata is available, correctness gates should use WBD as the source of truth.
-- If WBD enterprise metadata is unavailable, IMDb Enterprise metadata can be used as fallback.
+- If a licensed enterprise metadata source is available, correctness gates should use it as the source of truth.
+- If enterprise metadata is unavailable, IMDb Enterprise metadata can be used as fallback when licensed.
 - If sources disagree, record a metadata conflict warning.
 - Every validation check should record which metadata source was used.
 
@@ -217,8 +217,8 @@ Hard failure examples:
 - Required golden-set title is missing.
 - Cast, actor, director, award, rating, or time-period constraint is violated.
 - A returned title is missing poster art.
-- Offensive language appears in the blurb, custom descriptions, or follow-up suggestions.
-- Forbidden competitor mention appears in the blurb, custom descriptions, or follow-up suggestions.
+- Offensive language appears in the blurb, AI custom blurbs, or follow-up suggestions.
+- Forbidden competitor mention appears in the blurb, AI custom blurbs, or follow-up suggestions.
 - Required response fields are missing.
 
 Warnings include:
@@ -247,14 +247,14 @@ Apply this scale to:
 
 - Search results quality.
 - Conversation blurb quality.
-- Custom description quality.
+- AI custom blurb quality.
 - Follow-up suggestion quality.
 
 Ranking should matter as a quality signal. Top results and top 3 relevance matter heavily, golden-set rank positions should be tracked, and irrelevant high-rank results should hurt quality more than weak lower-ranked results. Ranking issues are not usually hard Stage 1 failures unless they expose a correctness violation.
 
 ## Copy Safety
 
-Copy checks apply to conversation blurbs, custom descriptions, and follow-up suggestions.
+Copy checks apply to conversation blurbs, AI custom blurbs, and follow-up suggestions.
 
 V1 should combine deterministic blocklists with AI sensitivity review.
 
@@ -265,14 +265,25 @@ Blocklist findings should record the matched term, field, text snippet, and exac
 
 ## Human Review
 
-Human reviewers should see the AI assessment by default and be able to validate or correct it.
+Human reviewers should see the automated response, AI-generated fields, and available AI assessment context while validating or correcting the response.
 
-For the four quality areas, reviewers can:
+For search results, reviewers can:
 
-- Approve the AI assessment.
-- Reject the AI assessment.
-- Change the quality label.
-- Add a comment.
+- Mark each returned title as a valid or invalid result for the query.
+- Choose the correct rank position for each returned title.
+- Add title-level commentary.
+
+For generated response copy, reviewers can:
+
+- Approve or reject the overall conversation blurb.
+- Approve or reject each AI custom blurb attached to a returned title.
+- Add commentary for the overall blurb or any per-title custom blurb.
+
+For follow-up suggestions, reviewers can:
+
+- Approve or reject each suggested follow-up.
+- Add commentary for each suggestion.
+- Open the suggested follow-up response when it has an evaluated node.
 
 For Stage 1 correctness gates, reviewers can:
 
@@ -281,6 +292,8 @@ For Stage 1 correctness gates, reviewers can:
 - Mark a false positive.
 
 The system should preserve the original automated finding, human decision, and comment history.
+
+Open scoring note: the V1 UI stores binary Check/X decisions for field-level human review. The product still needs to decide how those decisions should affect Stage 2 quality labels and trend rollups.
 
 ## Audit And History
 
@@ -294,7 +307,7 @@ Every evaluation run should save a complete snapshot:
 - Golden set used, if any.
 - Stage 1 gate results and evidence.
 - Stage 2 AI quality scores and reasoning.
-- Human approvals, rejections, overrides, and comments.
+- Human approvals, rejections, rank-position choices, field-level overrides, and comments.
 - Evaluator identity, timestamp, and run ID.
 - Metadata source used.
 - App and evaluation config version.
@@ -337,7 +350,7 @@ The mock should use a small amount of fixture data, just enough to demonstrate t
 - Live conversational search API execution.
 - Real follow-up clicking against live responses.
 - Parallel worker or sub-agent orchestration for branch evaluation.
-- WBD enterprise metadata integration.
+- Enterprise metadata integration.
 - IMDb Enterprise metadata integration.
 - Replacement of the TMDb prototype adapter with licensed enterprise sources.
 - Scheduled recurring evaluations.
