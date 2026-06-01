@@ -3,7 +3,6 @@ import type { MouseEvent as ReactMouseEvent } from 'react';
 import {
   BarChart3,
   CheckCircle2,
-  ChevronLeft,
   ChevronRight,
   CircleAlert,
   ClipboardCheck,
@@ -32,11 +31,13 @@ import {
 } from './data/evaluationFixtures';
 import { mediaById } from './data/mediaCatalog';
 import {
+  copyReviewKey,
   gateReviewKey,
   getRunNodes,
   getRunSeeds,
   getSeedNodes,
   getSeedRootNode,
+  initialCopyReviews,
   initialGateReviews,
   initialQualityReviews,
   qualityReviewKey,
@@ -48,16 +49,18 @@ import {
   tmdbPosterUrl,
   tmdbTitleUrl,
 } from './lib/tmdb';
-import { qualityLabels } from './types';
 import type {
   AppTab,
   ConversationNode,
+  CopyReviewMap,
+  CopyReviewTarget,
   EvaluationRun,
   GateDecision,
   GateReviewMap,
   QualityAssessment,
   QualityLabel,
   QualityReviewMap,
+  ReviewDecision,
   RunRollup,
   SeedQuery,
   Stage1Outcome,
@@ -121,16 +124,23 @@ function readStoredReviewState() {
 
   try {
     const stored = window.localStorage.getItem(reviewStorageKey);
-    return stored ? (JSON.parse(stored) as Partial<{
-      qualityReviews: QualityReviewMap;
-      gateReviews: GateReviewMap;
-    }>) : {};
+    return stored
+      ? (JSON.parse(stored) as Partial<{
+          copyReviews: CopyReviewMap;
+          qualityReviews: QualityReviewMap;
+          gateReviews: GateReviewMap;
+        }>)
+      : {};
   } catch {
     return {};
   }
 }
 
-function saveReviewState(qualityReviews: QualityReviewMap, gateReviews: GateReviewMap) {
+function saveReviewState(
+  qualityReviews: QualityReviewMap,
+  gateReviews: GateReviewMap,
+  copyReviews: CopyReviewMap,
+) {
   if (typeof window === 'undefined') {
     return;
   }
@@ -142,6 +152,7 @@ function saveReviewState(qualityReviews: QualityReviewMap, gateReviews: GateRevi
         savedAt: new Date().toISOString(),
         qualityReviews,
         gateReviews,
+        copyReviews,
       }),
     );
   } catch {
@@ -498,6 +509,41 @@ function ApprovalBadge({ label }: { label: QualityLabel }) {
   );
 }
 
+function HumanDecisionControls({
+  ariaLabel,
+  decision = 'Pending',
+  onChange,
+}: {
+  ariaLabel: string;
+  decision?: ReviewDecision;
+  onChange: (decision: ReviewDecision) => void;
+}) {
+  return (
+    <div className="human-decision-controls" role="group" aria-label={ariaLabel}>
+      <button
+        type="button"
+        className={`human-decision-button check ${decision === 'Approved' ? 'selected' : ''}`}
+        aria-pressed={decision === 'Approved'}
+        title="Check"
+        onClick={() => onChange('Approved')}
+      >
+        <CheckCircle2 aria-hidden="true" />
+        <span>Check</span>
+      </button>
+      <button
+        type="button"
+        className={`human-decision-button x ${decision === 'Rejected' ? 'selected' : ''}`}
+        aria-pressed={decision === 'Rejected'}
+        title="X"
+        onClick={() => onChange('Rejected')}
+      >
+        <XCircle aria-hidden="true" />
+        <span>X</span>
+      </button>
+    </div>
+  );
+}
+
 function QualitySignal({ assessment }: { assessment?: QualityAssessment }) {
   if (!assessment) {
     return null;
@@ -507,92 +553,6 @@ function QualitySignal({ assessment }: { assessment?: QualityAssessment }) {
     <div className="quality-signal">
       <span className="quality-rationale">{assessment.rationale}</span>
     </div>
-  );
-}
-
-function ExecutedQueryNavigator({
-  run,
-  selectedSeedId,
-  onSelectSeed,
-}: {
-  run: EvaluationRun;
-  selectedSeedId: string;
-  onSelectSeed: (seedId: string) => void;
-}) {
-  const queryItems = useMemo(
-    () =>
-      getRunSeeds(run).reduce<Array<{ seed: SeedQuery; rootNode: ConversationNode }>>(
-        (items, seed) => {
-          const rootNode = getSeedRootNode(run, seed.id);
-
-          if (rootNode) {
-            items.push({ seed, rootNode });
-          }
-
-          return items;
-        },
-        [],
-      ),
-    [run],
-  );
-  const selectedIndex = Math.max(
-    0,
-    queryItems.findIndex((item) => item.seed.id === selectedSeedId),
-  );
-  const selectedItem = queryItems[selectedIndex] ?? queryItems[0];
-  const previousItem = selectedIndex > 0 ? queryItems[selectedIndex - 1] : undefined;
-  const nextItem = selectedIndex < queryItems.length - 1 ? queryItems[selectedIndex + 1] : undefined;
-
-  if (!selectedItem) {
-    return null;
-  }
-
-  return (
-    <section className="executed-query-nav" aria-label="Executed query navigation">
-      <div className="query-nav-summary">
-        <span>Executed Query</span>
-        <strong>{selectedIndex + 1} of {queryItems.length}</strong>
-        <StatusPill label={seedStatusLabel(run, selectedItem.seed.id)} />
-      </div>
-      <div className="query-nav-select">
-        <strong className="query-nav-current">{selectedItem.rootNode.query}</strong>
-        <select
-          aria-label="Executed query"
-          value={selectedItem.seed.id}
-          onChange={(event) => onSelectSeed(event.target.value)}
-        >
-          {queryItems.map((item, index) => (
-            <option key={item.seed.id} value={item.seed.id}>
-              Query {index + 1} · {formatMachineLabel(item.seed.category)}
-            </option>
-          ))}
-        </select>
-        <small>
-          {formatMachineLabel(selectedItem.seed.category)} ·{' '}
-          {formatMachineLabel(selectedItem.seed.expectedMediaType)}
-        </small>
-      </div>
-      <div className="query-nav-actions">
-        <button
-          type="button"
-          className="query-nav-button"
-          onClick={() => previousItem && onSelectSeed(previousItem.seed.id)}
-          disabled={!previousItem}
-        >
-          <ChevronLeft aria-hidden="true" />
-          Previous
-        </button>
-        <button
-          type="button"
-          className="query-nav-button"
-          onClick={() => nextItem && onSelectSeed(nextItem.seed.id)}
-          disabled={!nextItem}
-        >
-          Next
-          <ChevronRight aria-hidden="true" />
-        </button>
-      </div>
-    </section>
   );
 }
 
@@ -1050,6 +1010,10 @@ function App() {
     ...initialGateReviews(),
     ...(readStoredReviewState().gateReviews ?? {}),
   }));
+  const [copyReviews, setCopyReviews] = useState<CopyReviewMap>(() => ({
+    ...initialCopyReviews(),
+    ...(readStoredReviewState().copyReviews ?? {}),
+  }));
 
   const selectedRun = evaluationRuns.find((run) => run.id === selectedRunId) ?? evaluationRuns[0];
   const selectedNode = nodeById[selectedNodeId] ?? getDefaultNodeForRun(selectedRun);
@@ -1065,8 +1029,8 @@ function App() {
   const tmdbMode = hasTmdbToken() ? 'TMDB fixture data · token ready' : 'TMDB fixture data';
 
   useEffect(() => {
-    saveReviewState(qualityReviews, gateReviews);
-  }, [qualityReviews, gateReviews]);
+    saveReviewState(qualityReviews, gateReviews, copyReviews);
+  }, [qualityReviews, gateReviews, copyReviews]);
 
   function selectRun(run: EvaluationRun) {
     const nextNode = getDefaultNodeForRun(run);
@@ -1124,6 +1088,23 @@ function App() {
       ...reviews,
       [key]: {
         decision: reviews[key]?.decision ?? 'Open',
+        comment: reviews[key]?.comment ?? '',
+        ...patch,
+      },
+    }));
+  }
+
+  function updateCopyReview(
+    nodeId: string,
+    target: CopyReviewTarget,
+    mediaId: string | undefined,
+    patch: Partial<CopyReviewMap[string]>,
+  ) {
+    const key = copyReviewKey(nodeId, target, mediaId);
+    setCopyReviews((reviews) => ({
+      ...reviews,
+      [key]: {
+        decision: reviews[key]?.decision ?? 'Pending',
         comment: reviews[key]?.comment ?? '',
         ...patch,
       },
@@ -1208,10 +1189,11 @@ function App() {
           <HumanReviewView
             run={selectedRun}
             node={selectedNode}
+            copyReviews={copyReviews}
             gateReviews={gateReviews}
-            qualityReviews={qualityReviews}
             onSelectSeed={selectSeed}
             onSelectNode={selectNode}
+            onUpdateCopyReview={updateCopyReview}
             onUpdateGateReview={updateGateReview}
             onUpdateQualityReview={updateQualityReview}
           />
@@ -1692,19 +1674,26 @@ function AutomatedDetailView({
 function HumanReviewView({
   run,
   node,
+  copyReviews,
   gateReviews,
-  qualityReviews,
   onSelectSeed,
   onSelectNode,
+  onUpdateCopyReview,
   onUpdateGateReview,
   onUpdateQualityReview,
 }: {
   run: EvaluationRun;
   node: ConversationNode;
+  copyReviews: CopyReviewMap;
   gateReviews: GateReviewMap;
-  qualityReviews: QualityReviewMap;
   onSelectSeed: (seedId: string) => void;
   onSelectNode: (nodeId: string) => void;
+  onUpdateCopyReview: (
+    nodeId: string,
+    target: CopyReviewTarget,
+    mediaId: string | undefined,
+    patch: Partial<CopyReviewMap[string]>,
+  ) => void;
   onUpdateGateReview: (
     nodeId: string,
     findingId: string,
@@ -1717,74 +1706,286 @@ function HumanReviewView({
   ) => void;
 }) {
   const siblingNodes = getSeedNodes(run, node.seedId);
+  const blurbReview = copyReviews[copyReviewKey(node.id, 'blurb')];
+
+  function updateBlurbJudgment(patch: Partial<CopyReviewMap[string]>) {
+    onUpdateCopyReview(node.id, 'blurb', undefined, patch);
+
+    if (patch.decision) {
+      onUpdateQualityReview(node.id, 'Blurb', { decision: patch.decision });
+    }
+
+    if (typeof patch.comment === 'string') {
+      onUpdateQualityReview(node.id, 'Blurb', { comment: patch.comment });
+    }
+  }
+
+  function descriptionAggregateDecision(mediaId: string, nextDecision: ReviewDecision) {
+    const decisions = node.resultSet.map((resultItem) => {
+      if (resultItem.mediaId === mediaId) {
+        return nextDecision;
+      }
+
+      return (
+        copyReviews[copyReviewKey(node.id, 'title-description', resultItem.mediaId)]?.decision ??
+        'Pending'
+      );
+    });
+
+    if (decisions.includes('Rejected')) {
+      return 'Rejected';
+    }
+
+    if (decisions.every((decision) => decision === 'Approved')) {
+      return 'Approved';
+    }
+
+    return 'Pending';
+  }
+
+  function searchResultsAggregateDecision(decisionOverrides: Record<string, ReviewDecision>) {
+    const decisions = node.resultSet.flatMap((resultItem) => {
+      const validityKey = copyReviewKey(node.id, 'result-validity', resultItem.mediaId);
+      const positionKey = copyReviewKey(node.id, 'result-position', resultItem.mediaId);
+
+      return [
+        decisionOverrides[validityKey] ??
+          copyReviews[validityKey]?.decision ??
+          'Pending',
+        decisionOverrides[positionKey] ??
+          copyReviews[positionKey]?.decision ??
+          'Pending',
+      ];
+    });
+
+    if (decisions.includes('Rejected')) {
+      return 'Rejected';
+    }
+
+    if (decisions.length > 0 && decisions.every((decision) => decision === 'Approved')) {
+      return 'Approved';
+    }
+
+    return 'Pending';
+  }
+
+  function followUpSuggestionsAggregateDecision(
+    suggestionId: string,
+    nextDecision: ReviewDecision,
+  ) {
+    const decisions = node.followUps.map((followUp) => {
+      if (followUp.id === suggestionId) {
+        return nextDecision;
+      }
+
+      return (
+        copyReviews[copyReviewKey(node.id, 'follow-up-suggestion', followUp.id)]?.decision ??
+        'Pending'
+      );
+    });
+
+    if (decisions.includes('Rejected')) {
+      return 'Rejected';
+    }
+
+    if (decisions.length > 0 && decisions.every((decision) => decision === 'Approved')) {
+      return 'Approved';
+    }
+
+    return 'Pending';
+  }
+
+  function updateResultValidityJudgment(mediaId: string, decision: ReviewDecision) {
+    const key = copyReviewKey(node.id, 'result-validity', mediaId);
+
+    onUpdateCopyReview(node.id, 'result-validity', mediaId, { decision });
+    onUpdateQualityReview(node.id, 'Search Results', {
+      decision: searchResultsAggregateDecision({ [key]: decision }),
+    });
+  }
+
+  function updateResultPositionJudgment(mediaId: string, currentRank: number, position: number) {
+    const key = copyReviewKey(node.id, 'result-position', mediaId);
+    const decision = position === currentRank ? 'Approved' : 'Rejected';
+
+    onUpdateCopyReview(node.id, 'result-position', mediaId, { decision, position });
+    onUpdateQualityReview(node.id, 'Search Results', {
+      decision: searchResultsAggregateDecision({ [key]: decision }),
+    });
+  }
+
+  function updateTitleDescriptionJudgment(
+    mediaId: string,
+    patch: Partial<CopyReviewMap[string]>,
+  ) {
+    onUpdateCopyReview(node.id, 'title-description', mediaId, patch);
+
+    if (patch.decision) {
+      onUpdateQualityReview(node.id, 'Custom Descriptions', {
+        decision: descriptionAggregateDecision(mediaId, patch.decision),
+      });
+    }
+  }
+
+  function updateFollowUpSuggestionJudgment(
+    suggestionId: string,
+    patch: Partial<CopyReviewMap[string]>,
+  ) {
+    onUpdateCopyReview(node.id, 'follow-up-suggestion', suggestionId, patch);
+
+    if (patch.decision) {
+      onUpdateQualityReview(node.id, 'Follow-Up Suggestions', {
+        decision: followUpSuggestionsAggregateDecision(suggestionId, patch.decision),
+      });
+    }
+  }
 
   return (
-    <div className="view-grid review-grid">
-      <section className="panel review-context">
+    <div className="view-grid detail-grid detail-four-column human-review-detail-grid">
+      <QueryListColumn
+        run={run}
+        selectedSeedId={node.seedId}
+        onSelectSeed={onSelectSeed}
+      />
+
+      <section className="panel detail-column conversation-column">
         <div className="section-heading">
           <div>
-            <h2>Human Review Detail</h2>
+            <h2>Conversation</h2>
             <p>{node.path.join(' / ')}</p>
           </div>
-          <StatusPill label="Needs Review" />
+          <StatusPill label={queryStatusLabel(node)} />
         </div>
-
-        <ExecutedQueryNavigator
-          run={run}
-          selectedSeedId={node.seedId}
-          onSelectSeed={onSelectSeed}
-        />
 
         <ConversationTreeNavigator
           nodes={siblingNodes}
           selectedNode={node}
           onSelectNode={onSelectNode}
         />
+      </section>
 
-        <div className="review-results">
+      <section className="panel detail-column results-column human-results-column">
+        <div className="section-heading">
+          <div>
+            <h2>Search Results</h2>
+            <p>{node.query}</p>
+          </div>
+          <StatusPill label="Human Review" />
+        </div>
+
+        <div className="result-strip">
           {node.resultSet.map((resultItem) => {
             const media = mediaById[resultItem.mediaId];
+            const descriptionReview =
+              copyReviews[copyReviewKey(node.id, 'title-description', resultItem.mediaId)];
+            const resultValidityReview =
+              copyReviews[copyReviewKey(node.id, 'result-validity', resultItem.mediaId)];
+            const resultPositionReview =
+              copyReviews[copyReviewKey(node.id, 'result-position', resultItem.mediaId)];
+            const commentId = `${node.id}-${resultItem.mediaId}-description-comment`;
+            const positionSelectId = `${node.id}-${resultItem.mediaId}-position-select`;
+
             if (!media) {
               return null;
             }
 
             return (
-              <article className="result-review" key={resultItem.mediaId}>
+              <article className="title-tile human-title-tile" key={resultItem.mediaId}>
                 <MediaPoster mediaId={resultItem.mediaId} />
-                <div>
-                  <div className="result-title-line">
-                    <h3>{media.title}</h3>
-                    <a
-                      href={tmdbTitleUrl(media.mediaType, media.tmdbId)}
-                      target="_blank"
-                      rel="noreferrer"
-                      title="Open on TMDB"
-                    >
-                      <ExternalLink aria-hidden="true" />
-                    </a>
+                <div className="title-summary">
+                  <div className="rank-review-row">
+                    <span className="rank">Position #{resultItem.rank}</span>
+                    <div className="result-fit-review">
+                      <span className="result-judgment-meta">Valid result</span>
+                      <HumanDecisionControls
+                        ariaLabel={`${media.title} result validity judgment`}
+                        decision={resultValidityReview?.decision ?? 'Pending'}
+                        onChange={(decision) =>
+                          updateResultValidityJudgment(resultItem.mediaId, decision)
+                        }
+                      />
+                    </div>
                   </div>
-                  <p>{node.customDescriptions[resultItem.mediaId]}</p>
+                  <h3>{media.title}</h3>
+                  <p>{media.year} · {media.runtimeLabel}</p>
+                  <div className="position-review-row">
+                    <label htmlFor={positionSelectId}>Correct position</label>
+                    <select
+                      id={positionSelectId}
+                      value={resultPositionReview?.position ?? resultItem.rank}
+                      onChange={(event) =>
+                        updateResultPositionJudgment(
+                          resultItem.mediaId,
+                          resultItem.rank,
+                          Number(event.target.value),
+                        )
+                      }
+                    >
+                      {node.resultSet.map((positionItem) => (
+                        <option key={positionItem.mediaId} value={positionItem.rank}>
+                          Position #{positionItem.rank}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <div className="metadata-tags">
                     <span>
                       <MediaTypeIcon type={media.mediaType} />
                       {media.mediaType}
                     </span>
-                    <span>{media.year}</span>
                     <span>TMDB {media.voteAverage.toFixed(1)}</span>
-                    <span>{media.genres.slice(0, 2).join(', ')}</span>
                   </div>
-                  <div className="metadata-checks">
-                    {resultItem.metadataChecks.map((check) => (
-                      <div className="metadata-check" key={check.id}>
-                        <StatusPill label={check.outcome} />
-                        <div>
-                          <strong>{check.field}</strong>
-                          <p>
-                            Expected {check.expected}; actual {check.actual}
-                          </p>
-                        </div>
+                </div>
+                <div className="result-judgment-list">
+                  <div className="result-judgment-card">
+                    <div>
+                      <span className="result-judgment-label">Result title + position</span>
+                      <strong>#{resultItem.rank} · {media.title}</strong>
+                    </div>
+                    <div className="result-judgment-actions">
+                      <span className="result-judgment-meta">Source</span>
+                      <a
+                        className="icon-link"
+                        href={tmdbTitleUrl(media.mediaType, media.tmdbId)}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Open on TMDB"
+                      >
+                        <ExternalLink aria-hidden="true" />
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="result-judgment-card human-description-card">
+                    <div className="human-copy-content">
+                      <span className="result-judgment-label">AI custom blurb</span>
+                      <p className="title-custom-description">
+                        {node.customDescriptions[resultItem.mediaId]}
+                      </p>
+                      <div className="result-judgment-actions">
+                        <span className="result-judgment-meta">Human judgment</span>
+                        <HumanDecisionControls
+                          ariaLabel={`${media.title} custom blurb judgment`}
+                          decision={descriptionReview?.decision ?? 'Pending'}
+                          onChange={(decision) =>
+                            updateTitleDescriptionJudgment(resultItem.mediaId, { decision })
+                          }
+                        />
                       </div>
-                    ))}
+                    </div>
+                    <div className="review-comment result-comment">
+                      <label htmlFor={commentId}>Commentary</label>
+                      <textarea
+                        id={commentId}
+                        value={descriptionReview?.comment ?? ''}
+                        onChange={(event) =>
+                          updateTitleDescriptionJudgment(resultItem.mediaId, {
+                            comment: event.target.value,
+                          })
+                        }
+                        placeholder="Add commentary"
+                      />
+                    </div>
                   </div>
                 </div>
               </article>
@@ -1793,128 +1994,155 @@ function HumanReviewView({
         </div>
       </section>
 
-      <section className="panel reviewer-panel">
-        <div className="section-heading compact">
-          <h2>AI Assessment</h2>
-          <span>{node.metadataSource} metadata</span>
+      <aside className="panel detail-column judgment-column human-judgment-column">
+        <div className="section-heading">
+          <div>
+            <h2>Human Judgment</h2>
+            <p>{node.metadataSource} metadata · {run.querySetVersion}</p>
+          </div>
+          <StatusPill label="Needs Review" />
         </div>
 
-        <div className="review-form-list">
-          {node.qualityAssessments.map((assessment) => {
-            const review = qualityReviews[qualityReviewKey(node.id, assessment.area)];
-            return (
-              <article className="review-form" key={assessment.area}>
-                <div className="review-form-heading">
-                  <div>
-                    <strong>{assessment.area}</strong>
-                    <p>{assessment.rationale}</p>
+        <section className="blurb-block judgment-blurb human-review-block">
+          <div className="content-heading">
+            <div>
+              <h3>Conversation Blurb</h3>
+            </div>
+            <HumanDecisionControls
+              ariaLabel="Conversation blurb judgment"
+              decision={blurbReview?.decision ?? 'Pending'}
+              onChange={(decision) => updateBlurbJudgment({ decision })}
+            />
+          </div>
+          <p>{node.blurb}</p>
+          <div className="review-comment">
+            <label htmlFor={`${node.id}-blurb-comment`}>Commentary</label>
+            <textarea
+              id={`${node.id}-blurb-comment`}
+              value={blurbReview?.comment ?? ''}
+              onChange={(event) => updateBlurbJudgment({ comment: event.target.value })}
+              placeholder="Add commentary"
+            />
+          </div>
+        </section>
+
+        <section className="judgment-section">
+          <div className="content-heading">
+            <h3>Correctness Gates</h3>
+          </div>
+          <div className="review-form-list">
+            {node.stage1Findings.map((finding) => {
+              const review = gateReviews[gateReviewKey(node.id, finding.id)];
+              const decisions: GateDecision[] =
+                finding.outcome === 'Fail'
+                  ? ['Open', 'Acknowledged', 'False Positive']
+                  : ['Open', 'Acknowledged'];
+
+              return (
+                <article className="gate-form compact-gate-form" key={finding.id}>
+                  <div className="finding-line">
+                    <OutcomeIcon outcome={finding.outcome} />
+                    <div>
+                      <strong>{finding.title}</strong>
+                      <p>{finding.evidence}</p>
+                    </div>
+                    <StatusPill label={review?.decision ?? 'Open'} />
                   </div>
-                  <QualityPill label={assessment.label} />
-                </div>
-                <div className="review-controls">
-                  <select
-                    value={review?.label ?? assessment.label}
+                  <div className="segmented">
+                    {decisions.map((decision) => (
+                      <button
+                        key={decision}
+                        type="button"
+                        className={review?.decision === decision ? 'selected' : ''}
+                        onClick={() =>
+                          onUpdateGateReview(node.id, finding.id, {
+                            decision,
+                          })
+                        }
+                      >
+                        {decision}
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    value={review?.comment ?? ''}
                     onChange={(event) =>
-                      onUpdateQualityReview(node.id, assessment.area, {
-                        label: event.target.value as QualityLabel,
+                      onUpdateGateReview(node.id, finding.id, {
+                        comment: event.target.value,
                       })
                     }
-                    aria-label={`${assessment.area} quality label`}
-                  >
-                    {qualityLabels.map((label) => (
-                      <option key={label} value={label}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    className={review?.decision === 'Approved' ? 'selected positive' : ''}
-                    onClick={() =>
-                      onUpdateQualityReview(node.id, assessment.area, { decision: 'Approved' })
-                    }
-                  >
-                    <CheckCircle2 aria-hidden="true" />
-                    Approved
-                  </button>
-                  <button
-                    type="button"
-                    className={review?.decision === 'Rejected' ? 'selected warning' : ''}
-                    onClick={() =>
-                      onUpdateQualityReview(node.id, assessment.area, { decision: 'Rejected' })
-                    }
-                  >
-                    <CircleAlert aria-hidden="true" />
-                    Rejected
-                  </button>
-                </div>
-                <textarea
-                  value={review?.comment ?? ''}
-                  onChange={(event) =>
-                    onUpdateQualityReview(node.id, assessment.area, {
-                      comment: event.target.value,
-                    })
-                  }
-                  placeholder="Reviewer comment"
-                />
-              </article>
-            );
-          })}
-        </div>
-      </section>
+                    placeholder="Gate comment"
+                  />
+                </article>
+              );
+            })}
+          </div>
+        </section>
 
-      <section className="panel gate-review-panel">
-        <div className="section-heading compact">
-          <h2>Correctness Gates</h2>
-          <span>{node.stage1Findings.length} findings</span>
-        </div>
-        <div className="review-form-list">
-          {node.stage1Findings.map((finding) => {
-            const review = gateReviews[gateReviewKey(node.id, finding.id)];
-            const decisions: GateDecision[] =
-              finding.outcome === 'Fail'
-                ? ['Open', 'Acknowledged', 'False Positive']
-                : ['Open', 'Acknowledged'];
-            return (
-              <article className="gate-form" key={finding.id}>
-                <div className="finding-line">
-                  <OutcomeIcon outcome={finding.outcome} />
-                  <div>
-                    <strong>{finding.title}</strong>
-                    <p>{finding.evidence}</p>
-                  </div>
-                  <StatusPill label={review?.decision ?? 'Open'} />
-                </div>
-                <div className="segmented">
-                  {decisions.map((decision) => (
-                    <button
-                      key={decision}
-                      type="button"
-                      className={review?.decision === decision ? 'selected' : ''}
-                      onClick={() =>
-                        onUpdateGateReview(node.id, finding.id, {
-                          decision,
-                        })
-                      }
-                    >
-                      {decision}
-                    </button>
-                  ))}
-                </div>
-                <textarea
-                  value={review?.comment ?? ''}
-                  onChange={(event) =>
-                    onUpdateGateReview(node.id, finding.id, {
-                      comment: event.target.value,
-                    })
-                  }
-                  placeholder="Gate comment"
-                />
-              </article>
-            );
-          })}
-        </div>
-      </section>
+        <section className="judgment-section">
+          <div className="content-heading">
+            <h3>Follow-Up Suggestions</h3>
+          </div>
+          <div className="follow-up-review-list">
+            {node.followUps.length ? (
+              node.followUps.map((followUp) => {
+                const review =
+                  copyReviews[copyReviewKey(node.id, 'follow-up-suggestion', followUp.id)];
+                const commentId = `${node.id}-${followUp.id}-follow-up-comment`;
+
+                return (
+                  <article className="follow-up-review-card" key={followUp.id}>
+                    <div className="follow-up-review-heading">
+                      <div>
+                        <span className="result-judgment-label">AI follow-up suggestion</span>
+                        <strong>
+                          <MessageSquareText aria-hidden="true" />
+                          {followUp.text}
+                        </strong>
+                      </div>
+                      <button
+                        type="button"
+                        className="icon-link"
+                        onClick={() => followUp.targetNodeId && onSelectNode(followUp.targetNodeId)}
+                        disabled={!followUp.targetNodeId}
+                        title="Open response"
+                        aria-label={`Open ${followUp.text} response`}
+                      >
+                        <ChevronRight aria-hidden="true" />
+                      </button>
+                    </div>
+                    <div className="result-judgment-actions">
+                      <span className="result-judgment-meta">Human judgment</span>
+                      <HumanDecisionControls
+                        ariaLabel={`${followUp.text} follow-up suggestion judgment`}
+                        decision={review?.decision ?? 'Pending'}
+                        onChange={(decision) =>
+                          updateFollowUpSuggestionJudgment(followUp.id, { decision })
+                        }
+                      />
+                    </div>
+                    <div className="review-comment">
+                      <label htmlFor={commentId}>Commentary</label>
+                      <textarea
+                        id={commentId}
+                        value={review?.comment ?? ''}
+                        onChange={(event) =>
+                          updateFollowUpSuggestionJudgment(followUp.id, {
+                            comment: event.target.value,
+                          })
+                        }
+                        placeholder="Add commentary"
+                      />
+                    </div>
+                  </article>
+                );
+              })
+            ) : (
+              <div className="empty-state">No follow-up suggestions</div>
+            )}
+          </div>
+        </section>
+      </aside>
     </div>
   );
 }

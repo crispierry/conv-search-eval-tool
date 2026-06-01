@@ -73,11 +73,11 @@ The selected node should show:
 
 - AI blurb
 - Search results
-- Custom descriptions
+- AI custom blurbs
 - Follow-up suggestions
 - Stage 1 gate findings
 - Stage 2 quality ratings
-- Human review controls
+- Human review controls for result validity, rank position, conversation blurb, AI custom blurbs, follow-up suggestions, gates, and commentary
 
 This keeps the map as navigation and context, while the existing evaluator panels remain the place where work happens.
 

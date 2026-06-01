@@ -147,8 +147,22 @@ export interface GateReview {
   comment: string;
 }
 
+export type CopyReviewTarget =
+  | 'blurb'
+  | 'follow-up-suggestion'
+  | 'result-position'
+  | 'result-validity'
+  | 'title-description';
+
+export interface CopyReview {
+  decision: ReviewDecision;
+  comment: string;
+  position?: number;
+}
+
 export type QualityReviewMap = Record<string, QualityReview>;
 export type GateReviewMap = Record<string, GateReview>;
+export type CopyReviewMap = Record<string, CopyReview>;
 
 export interface RunRollup {
   status: 'Passing' | 'Needs Review' | 'Failing';

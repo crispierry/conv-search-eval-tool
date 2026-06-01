@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security issue
+    url: https://github.com/crispierry/conv-search-eval-tool/security/policy
+    about: Please report exploitable vulnerabilities privately when possible.

@@ -104,12 +104,12 @@ Consequences:
 
 Decision: Use TMDb as the entertainment metadata source for the first prototype.
 
-Context: The prototype needs movie, TV, people, image, and search metadata to exercise conversational search evaluation workflows. IMDb Enterprise data and WBD enterprise data are expected future production sources, but they require separate licensing, access, and integration work.
+Context: The prototype needs movie, TV, people, image, and search metadata to exercise conversational search evaluation workflows. IMDb Enterprise data and other enterprise metadata sources are expected future production options, but they require separate licensing, access, and integration work.
 
 Alternatives considered:
 
 - Build the prototype directly on IMDb Enterprise data.
-- Build the prototype directly on WBD enterprise data.
+- Build the prototype directly on enterprise metadata.
 - Use static fixtures only.
 - Use OMDb as the prototype metadata API.
 
@@ -118,4 +118,23 @@ Consequences:
 - The prototype can move faster while the evaluation workflow is still being shaped.
 - The product must keep metadata access behind a replaceable adapter.
 - Reviewer, scenario, scoring, and reporting models should not depend on TMDb-specific field names.
-- A future migration plan will be needed for IMDb Enterprise and WBD enterprise data.
+- A future migration plan will be needed for IMDb Enterprise or another enterprise metadata source.
+
+### 2026-06-01: Expand Human Review To Field-Level Judgments
+
+Decision: Human Review should mirror the Automated Detail layout while replacing automated assessment cards with human judgment controls for the exact fields reviewers need to inspect.
+
+Context: Reviewers need to judge more than an overall AI quality assessment. They need to validate the conversation blurb, each returned title, ranking position, each AI custom blurb, follow-up suggestions, and Stage 1 gate findings without losing conversation context.
+
+Alternatives considered:
+
+- Keep one quality-area form for Search Results, Blurb, AI Custom Blurbs, and Follow-Up Suggestions.
+- Move all human review into a separate form below the response.
+- Keep per-title and follow-up review as future notes only.
+
+Consequences:
+
+- Human Review now uses the same query list, conversation map, result list, and judgment column structure as Automated Detail.
+- Review state now includes field-level copy-review records for blurbs, result validity, rank position, AI custom blurbs, and follow-up suggestions.
+- The Human Judgment column must support independent vertical scrolling because it can contain gate findings and multiple suggestion review cards.
+- Stage 2 score semantics need a follow-up decision because binary Check/X judgments are currently stored separately from quality labels.

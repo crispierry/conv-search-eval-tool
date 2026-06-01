@@ -1,8 +1,26 @@
 {
   "name": "conv-search-eval-tool",
-  "private": true,
+  "description": "A mock-driven web app for evaluating conversational search quality across automated checks, human review, and trends.",
   "version": "0.1.0",
+  "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/crispierry/conv-search-eval-tool.git"
+  },
+  "bugs": {
+    "url": "https://github.com/crispierry/conv-search-eval-tool/issues"
+  },
+  "homepage": "https://github.com/crispierry/conv-search-eval-tool#readme",
+  "keywords": [
+    "conversational-search",
+    "evaluation",
+    "search-quality",
+    "human-review",
+    "tmdb",
+    "react",
+    "vite"
+  ],
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json && vite build",
