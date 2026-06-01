@@ -16,6 +16,7 @@ Use this file to capture lightweight pending product and UX work items before th
 
 - [ ] WL-7 - Human-review scoring semantics: implemented the first-pass rule where rejected Check/X judgments count as Stage 2 failures in quality scores and trend rollups, while approved or pending judgments preserve the reviewed/automated quality label. Keep open until the user confirms this scoring policy is final.
 - [ ] WL-8 - Rank-position approval affordance: added explicit Check/X controls beside each correct-position selector so reviewers can approve the current rank without changing the dropdown. Keep open until the user confirms the interaction is final.
+- [ ] WL-9 - Project overview tab: added an Overview tab with a product summary, rendered PRD, and an evaluation-scope section covering inputs, gates, quality, conversation paths, human review, and reporting. Keep open until the user confirms the content and placement are right.
 
 ## 2026-05-31
 

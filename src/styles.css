@@ -66,6 +66,8 @@ a {
 h1,
 h2,
 h3,
+h4,
+h5,
 p {
   margin: 0;
 }
@@ -85,6 +87,20 @@ h3 {
   color: var(--text);
   font-size: 0.92rem;
   line-height: 1.3;
+}
+
+h4,
+h5 {
+  color: var(--text);
+  line-height: 1.3;
+}
+
+h4 {
+  font-size: 0.98rem;
+}
+
+h5 {
+  font-size: 0.88rem;
 }
 
 p,
@@ -169,7 +185,8 @@ span {
 .icon-link svg,
 .result-title-line svg,
 .metadata-tags svg,
-.finding-line svg {
+.finding-line svg,
+.evaluation-scope-icon svg {
   width: 1rem;
   height: 1rem;
   flex: 0 0 auto;
@@ -269,6 +286,175 @@ footer {
 
 .trends-grid .wide {
   grid-column: 1 / -1;
+}
+
+.overview-grid {
+  grid-template-columns: minmax(0, 1.1fr) minmax(340px, 0.9fr);
+  align-items: start;
+}
+
+.overview-summary,
+.overview-intro-panel {
+  grid-column: 1 / -1;
+}
+
+.prd-panel {
+  grid-column: 1;
+}
+
+.evaluation-scope-panel {
+  grid-column: 2;
+  position: sticky;
+  top: 0;
+}
+
+.overview-copy {
+  display: grid;
+  gap: 0.65rem;
+  max-width: 68rem;
+}
+
+.overview-copy p,
+.evaluation-scope-heading p,
+.prd-document p,
+.prd-document li {
+  color: var(--muted);
+}
+
+.overview-facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.2rem;
+}
+
+.overview-fact {
+  display: grid;
+  align-content: start;
+  gap: 0.3rem;
+  min-height: 6.4rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-soft);
+}
+
+.overview-fact span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.overview-fact strong {
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.prd-document {
+  display: grid;
+  gap: 0.72rem;
+  padding-right: 0.35rem;
+}
+
+.prd-document h3 {
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 1.12rem;
+}
+
+.prd-document h4 {
+  margin-top: 0.45rem;
+  color: var(--teal);
+}
+
+.prd-document h5 {
+  margin-top: 0.25rem;
+}
+
+.prd-document p,
+.prd-document li {
+  font-size: 0.9rem;
+}
+
+.prd-document ul {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding-left: 1.15rem;
+}
+
+.prd-document blockquote {
+  margin: 0;
+  padding: 0.85rem;
+  border-left: 4px solid var(--teal);
+  border-radius: 8px;
+  background: #f0fdfa;
+  color: var(--text);
+  font-weight: 800;
+}
+
+.prd-document code {
+  padding: 0.1rem 0.25rem;
+  border-radius: 5px;
+  background: #eef2f7;
+  color: var(--text);
+  font-size: 0.84rem;
+}
+
+.prd-document a {
+  color: var(--teal);
+  font-weight: 750;
+}
+
+.evaluation-scope-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.evaluation-scope-card {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-soft);
+}
+
+.evaluation-scope-heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: start;
+}
+
+.evaluation-scope-heading > div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.evaluation-scope-icon {
+  width: 2.1rem;
+  height: 2.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--teal-soft);
+  color: var(--teal);
+}
+
+.evaluation-scope-card ul {
+  display: grid;
+  gap: 0.38rem;
+  margin: 0;
+  padding-left: 1.15rem;
+}
+
+.evaluation-scope-card li {
+  color: var(--text);
+  font-size: 0.88rem;
+  line-height: 1.38;
 }
 
 .panel {
@@ -1880,16 +2066,23 @@ textarea {
 
 @media (max-width: 1120px) {
   .runs-grid,
+  .overview-grid,
   .detail-grid,
   .review-grid,
   .trends-grid {
     grid-template-columns: 1fr;
   }
 
+  .prd-panel,
+  .evaluation-scope-panel {
+    grid-column: 1 / -1;
+  }
+
   .side-panel,
   .query-list-column,
   .conversation-column,
-  .judgment-column {
+  .judgment-column,
+  .evaluation-scope-panel {
     position: static;
   }
 
@@ -1905,7 +2098,8 @@ textarea {
   }
 
   .summary-band,
-  .review-rollup {
+  .review-rollup,
+  .overview-facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -1939,7 +2133,8 @@ textarea {
   .summary-band,
   .review-rollup,
   .split-panel,
-  .two-column {
+  .two-column,
+  .overview-facts {
     display: grid;
     grid-template-columns: 1fr;
   }

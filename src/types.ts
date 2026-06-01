@@ -6,7 +6,7 @@ export type MediaType = 'movie' | 'series';
 export type ExpectedMediaType = MediaType | 'mixed' | 'unknown';
 export type ReviewDecision = 'Pending' | 'Approved' | 'Rejected';
 export type GateDecision = 'Open' | 'Acknowledged' | 'False Positive';
-export type AppTab = 'runs' | 'queries' | 'detail' | 'review' | 'trends';
+export type AppTab = 'overview' | 'runs' | 'queries' | 'detail' | 'review' | 'trends';
 
 export interface TmdbMedia {
   id: string;

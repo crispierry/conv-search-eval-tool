@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { MouseEvent as ReactMouseEvent } from 'react';
+import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react';
 import {
   BarChart3,
+  BookOpen,
   CheckCircle2,
   ChevronRight,
   CircleAlert,
@@ -24,6 +25,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
+import productBriefMarkdown from '../docs/PRODUCT_BRIEF.md?raw';
 import {
   evaluationRuns,
   nodeById,
@@ -67,6 +69,7 @@ import type {
 } from './types';
 
 const tabs = [
+  { id: 'overview', label: 'Overview', icon: BookOpen },
   { id: 'runs', label: 'Runs', icon: ClipboardCheck },
   { id: 'queries', label: 'Queries', icon: ListChecks },
   { id: 'detail', label: 'Automated Detail', icon: GitBranch },
@@ -116,6 +119,96 @@ interface ConversationMapEdge {
   fromId: string;
   toId: string;
 }
+
+type MarkdownBlock =
+  | { id: string; type: 'heading'; level: number; text: string }
+  | { id: string; type: 'paragraph'; text: string }
+  | { id: string; type: 'quote'; text: string }
+  | { id: string; type: 'list'; items: string[] };
+
+const productBriefBlocks = parseMarkdown(productBriefMarkdown);
+
+const projectOverviewItems = [
+  {
+    label: 'Primary Question',
+    value: 'Is conversational search getting better over time, and what is still failing?',
+  },
+  {
+    label: 'First Audience',
+    value: 'Product teammates reviewing quality, workflow, failures, and handoff needs.',
+  },
+  {
+    label: 'Current Shape',
+    value: 'A mock-driven dashboard using saved fixture runs and TMDB prototype metadata.',
+  },
+  {
+    label: 'Future Shape',
+    value: 'Live execution, scheduled recurring runs, reviewer assignment, and shareable reports.',
+  },
+];
+
+const evaluationScopeGroups = [
+  {
+    title: 'Inputs And Scope',
+    icon: ListChecks,
+    summary: 'The tool starts with structured seed queries and turns them into saved evaluation runs.',
+    items: [
+      'Starter query text, search intent category, expected media type, and product notes.',
+      'Expected result count, required constraints, and optional golden-set titles.',
+      'Run metadata such as system label, query-set version, evaluation config, and snapshot date.',
+    ],
+  },
+  {
+    title: 'Stage 1 Gates',
+    icon: CircleAlert,
+    summary: 'Correctness checks decide whether a response is valid enough to judge.',
+    items: [
+      'No-result failures, wrong media type, missing required fields, and missing poster art.',
+      'Constraint violations across cast, actor, director, awards, ratings, time period, genre, or similar requirements.',
+      'Golden-set misses, incomplete metadata, source conflicts, offensive language, and competitor mentions.',
+    ],
+  },
+  {
+    title: 'Stage 2 Quality',
+    icon: Star,
+    summary: 'Quality scoring looks at the user experience once correctness basics are checked.',
+    items: [
+      'Search result relevance, ranking quality, result count usefulness, and top-result fit.',
+      'Conversation blurb accuracy, clarity, tone, safety, and usefulness.',
+      'Per-title AI custom blurbs and follow-up suggestions for relevance, specificity, diversity, and coherence.',
+    ],
+  },
+  {
+    title: 'Conversation Paths',
+    icon: GitBranch,
+    summary: 'Suggested follow-ups are evaluated as a bounded conversation tree.',
+    items: [
+      'Every suggested follow-up is recorded, clicked when available, and evaluated as its own node.',
+      'Branches continue independently to the configured depth, with dead ends and repeated suggestions tracked.',
+      'Depth quality, branch coherence, repetition, bias, and overrepresented topics roll up to run reporting.',
+    ],
+  },
+  {
+    title: 'Human Review',
+    icon: UserCheck,
+    summary: 'Reviewers validate or correct automated judgments at the field level.',
+    items: [
+      'Returned title validity, rank position, title-level commentary, and generated custom blurbs.',
+      'Overall conversation blurb approval, follow-up suggestion approval, and reviewer comments.',
+      'Stage 1 finding acknowledgement, false-positive marking, and preserved automated evidence.',
+    ],
+  },
+  {
+    title: 'Reporting',
+    icon: TrendingUp,
+    summary: 'Run summaries explain whether the system is improving and where failures repeat.',
+    items: [
+      'Stage 1 hard failure rate, average Stage 2 quality, and quality by area.',
+      'Breakdowns by query category, expected media type, golden-set coverage, and follow-up depth.',
+      'Recurring failure reasons, repeated follow-up rate, suggestion patterns, and review rollups.',
+    ],
+  },
+];
 
 function readStoredReviewState() {
   if (typeof window === 'undefined') {
@@ -241,6 +334,133 @@ function formatMachineLabel(value: string) {
   return value
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function isMarkdownBoundary(line: string) {
+  return (
+    line.startsWith('# ') ||
+    line.startsWith('## ') ||
+    line.startsWith('### ') ||
+    line.startsWith('- ') ||
+    line.startsWith('> ')
+  );
+}
+
+function parseMarkdown(markdown: string) {
+  const blocks: MarkdownBlock[] = [];
+  const lines = markdown.split('\n');
+  let index = 0;
+
+  while (index < lines.length) {
+    const line = lines[index].trim();
+
+    if (!line) {
+      index += 1;
+      continue;
+    }
+
+    const headingMatch = /^(#{1,3})\s+(.+)$/.exec(line);
+
+    if (headingMatch) {
+      blocks.push({
+        id: `heading-${blocks.length}`,
+        level: headingMatch[1].length,
+        text: headingMatch[2],
+        type: 'heading',
+      });
+      index += 1;
+      continue;
+    }
+
+    if (line.startsWith('- ')) {
+      const items: string[] = [];
+
+      while (index < lines.length && lines[index].trim().startsWith('- ')) {
+        items.push(lines[index].trim().slice(2));
+        index += 1;
+      }
+
+      blocks.push({ id: `list-${blocks.length}`, items, type: 'list' });
+      continue;
+    }
+
+    if (line.startsWith('> ')) {
+      const quoteLines: string[] = [];
+
+      while (index < lines.length && lines[index].trim().startsWith('> ')) {
+        quoteLines.push(lines[index].trim().slice(2));
+        index += 1;
+      }
+
+      blocks.push({
+        id: `quote-${blocks.length}`,
+        text: quoteLines.join(' '),
+        type: 'quote',
+      });
+      continue;
+    }
+
+    const paragraphLines = [line];
+    index += 1;
+
+    while (index < lines.length) {
+      const nextLine = lines[index].trim();
+
+      if (!nextLine || isMarkdownBoundary(nextLine)) {
+        break;
+      }
+
+      paragraphLines.push(nextLine);
+      index += 1;
+    }
+
+    blocks.push({
+      id: `paragraph-${blocks.length}`,
+      text: paragraphLines.join(' '),
+      type: 'paragraph',
+    });
+  }
+
+  return blocks;
+}
+
+function renderInlineMarkdown(text: string) {
+  const inlinePattern = /(`([^`]+)`|\[([^\]]+)\]\(([^)]+)\))/g;
+  const nodes: ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = inlinePattern.exec(text))) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+
+    if (match[2]) {
+      nodes.push(<code key={`code-${match.index}`}>{match[2]}</code>);
+    } else if (match[3] && match[4]) {
+      const href = match[4];
+      const isExternal = href.startsWith('http');
+
+      nodes.push(
+        <a
+          href={href}
+          key={`link-${match.index}`}
+          rel={isExternal ? 'noreferrer' : undefined}
+          target={isExternal ? '_blank' : undefined}
+        >
+          {match[3]}
+        </a>,
+      );
+    }
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes;
 }
 
 function conversationTurnLabel(depth: number) {
@@ -996,7 +1216,7 @@ function getDefaultNodeForRun(run: EvaluationRun) {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<AppTab>('runs');
+  const [activeTab, setActiveTab] = useState<AppTab>('overview');
   const [selectedRunId, setSelectedRunId] = useState(evaluationRuns[0].id);
   const [selectedSeedId, setSelectedSeedId] = useState(evaluationRuns[0].seedIds[0]);
   const [selectedNodeId, setSelectedNodeId] = useState(
@@ -1149,6 +1369,10 @@ function App() {
       </div>
 
       <main>
+        {activeTab === 'overview' ? (
+          <OverviewView selectedRollup={selectedRollup} />
+        ) : null}
+
         {activeTab === 'runs' ? (
           <RunsView
             selectedRun={selectedRun}
@@ -1208,6 +1432,157 @@ function App() {
         <span>{tmdbAttribution}</span>
       </footer>
     </div>
+  );
+}
+
+function OverviewView({ selectedRollup }: { selectedRollup: RunRollup }) {
+  const totalSavedNodes = evaluationRuns.reduce((count, run) => count + run.nodeIds.length, 0);
+  const qualityAreaCount = Object.keys(selectedRollup.qualityByArea).length;
+
+  return (
+    <div className="view-grid overview-grid">
+      <section className="summary-band overview-summary">
+        <Metric
+          label="Saved Runs"
+          value={String(evaluationRuns.length)}
+          icon={ClipboardCheck}
+          tone="info"
+        />
+        <Metric
+          label="Seed Queries"
+          value={String(selectedRollup.seedCount)}
+          icon={ListChecks}
+          tone="positive"
+        />
+        <Metric
+          label="Saved Nodes"
+          value={String(totalSavedNodes)}
+          icon={GitBranch}
+          tone="warning"
+        />
+        <Metric
+          label="Quality Areas"
+          value={String(qualityAreaCount)}
+          icon={Star}
+          tone="neutral"
+        />
+      </section>
+
+      <section className="panel overview-intro-panel">
+        <div className="section-heading">
+          <div>
+            <h2>Project Overview</h2>
+            <p>Conversational search quality, explained for product review.</p>
+          </div>
+          <StatusPill label="PRD-Backed" />
+        </div>
+
+        <div className="overview-copy">
+          <p>
+            This project is an internal evaluation dashboard for understanding conversational search
+            quality across starter queries, automated follow-up paths, human review, and run-level
+            trends.
+          </p>
+          <p>
+            The current app is intentionally mock-driven: it uses fixture responses and TMDB
+            prototype metadata so the product workflow can be reviewed before live search execution
+            and production metadata integrations are available.
+          </p>
+        </div>
+
+        <div className="overview-facts">
+          {projectOverviewItems.map((item) => (
+            <div className="overview-fact" key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel prd-panel">
+        <div className="section-heading">
+          <div>
+            <h2>Product Requirements Document</h2>
+            <p>Rendered from docs/PRODUCT_BRIEF.md</p>
+          </div>
+          <StatusPill label="PRD" />
+        </div>
+
+        <ProductBriefDocument />
+      </section>
+
+      <section className="panel evaluation-scope-panel">
+        <div className="section-heading">
+          <div>
+            <h2>Everything We Evaluate</h2>
+            <p>Inputs, gates, quality scoring, paths, review, and reporting.</p>
+          </div>
+          <StatusPill label="Scope" />
+        </div>
+
+        <div className="evaluation-scope-list">
+          {evaluationScopeGroups.map((group) => {
+            const Icon = group.icon;
+
+            return (
+              <article className="evaluation-scope-card" key={group.title}>
+                <div className="evaluation-scope-heading">
+                  <span className="evaluation-scope-icon">
+                    <Icon aria-hidden="true" />
+                  </span>
+                  <div>
+                    <h3>{group.title}</h3>
+                    <p>{group.summary}</p>
+                  </div>
+                </div>
+                <ul>
+                  {group.items.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ProductBriefDocument() {
+  return (
+    <article className="prd-document">
+      {productBriefBlocks.map((block) => {
+        if (block.type === 'heading') {
+          if (block.level === 1) {
+            return null;
+          }
+
+          if (block.level === 2) {
+            return <h4 key={block.id}>{renderInlineMarkdown(block.text)}</h4>;
+          }
+
+          return <h5 key={block.id}>{renderInlineMarkdown(block.text)}</h5>;
+        }
+
+        if (block.type === 'list') {
+          return (
+            <ul key={block.id}>
+              {block.items.map((item) => (
+                <li key={item}>{renderInlineMarkdown(item)}</li>
+              ))}
+            </ul>
+          );
+        }
+
+        if (block.type === 'quote') {
+          return <blockquote key={block.id}>{renderInlineMarkdown(block.text)}</blockquote>;
+        }
+
+        return <p key={block.id}>{renderInlineMarkdown(block.text)}</p>;
+      })}
+    </article>
   );
 }
 
