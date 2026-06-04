@@ -35,6 +35,62 @@ npm run lint
 npm run build
 ```
 
+## Publishing To crispierry.com
+
+This repository is the source of truth for the conversational search evaluation tool published on Cristiano Pierry's website. The website repo publishes a committed static build under `public/project-apps/conv-search-eval/` and embeds it from `/projects/conv-search-eval`.
+
+## Repository Map
+
+| Surface | Location |
+| --- | --- |
+| Source repo | `/Users/cris/Documents/github/conv-search-eval-tool` |
+| GitHub repo | `https://github.com/crispierry/conv-search-eval-tool` |
+| Website repo | `/Users/cris/Documents/github/cris pierry website` |
+| Website artifact | `public/project-apps/conv-search-eval/` |
+| Website route | `/projects/conv-search-eval` |
+| Static app base path | `/project-apps/conv-search-eval/` |
+| Import command | `npm run build:conv-search-eval` |
+| Worktree override | `CONV_SEARCH_EVAL_ROOT=/path/to/worktree` |
+
+After changing this repo, verify and commit the source first:
+
+```bash
+cd /Users/cris/Documents/github/conv-search-eval-tool
+npm install
+npm run lint
+npm run build
+git add .
+git commit -m "Describe the conversational search eval change"
+git push origin main
+```
+
+Then refresh the website artifact and publish the site:
+
+```bash
+cd "/Users/cris/Documents/github/cris pierry website"
+npm run build:conv-search-eval
+npm run build
+git add public/project-apps/conv-search-eval
+git commit -m "Update conversational search eval tool"
+git push origin main
+```
+
+If the source change lives in a worktree instead of the canonical sibling checkout, point the website importer at that worktree:
+
+```bash
+cd "/Users/cris/Documents/github/cris pierry website"
+CONV_SEARCH_EVAL_ROOT="/path/to/conv-search-eval worktree" npm run build:conv-search-eval
+```
+
+After the website push, wait for the Netlify production deploy for the pushed website commit to reach `ready`, then verify:
+
+```text
+https://crispierry.com/projects/conv-search-eval
+https://crispierry.com/project-apps/conv-search-eval/index.html
+```
+
+The older `/Users/cris/Documents/github/conv search` folder is a separate prototype and is not the website publishing source for this tool.
+
 ## Documentation
 
 - [Product requirements document](docs/PRODUCT_BRIEF.md)
